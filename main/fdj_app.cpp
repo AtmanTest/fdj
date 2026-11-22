@@ -708,9 +708,6 @@ static void action_cocher(void)
         break;
     case P_ACCES:
         if (nav.curseur == 0) {
-            etat.gros_texte = !etat.gros_texte;
-            dit(etat.gros_texte ? "GROS TEXTE ON" : "GROS TEXTE OFF");
-        } else if (nav.curseur == 2) {
             etat.son_clic = !etat.son_clic;
             dit(etat.son_clic ? "SON DES TOUCHES ON" : "SON DES TOUCHES OFF");
         } else {
@@ -810,9 +807,6 @@ static void action_page(void)
     case P_PROFILS: select_ou_cree_profil(); break;
     case P_ACCES:
         if (nav.curseur == 0) {
-            etat.gros_texte = !etat.gros_texte;
-            dit(etat.gros_texte ? "GROS TEXTE ON" : "GROS TEXTE OFF");
-        } else if (nav.curseur == 2) {
             etat.son_clic = !etat.son_clic;
             dit(etat.son_clic ? "SON DES TOUCHES ON" : "SON DES TOUCHES OFF");
         } else {

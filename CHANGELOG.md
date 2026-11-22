@@ -1,5 +1,30 @@
 # Journal des versions
 
+## 4.1.5 — 2026-11-22 — zéro propre, accueil resserré
+
+- Police 5×10 : le zéro était barré (0x19/0x15/0x13), il lisait « Ø » dans les
+  montants. Remplacé par un zéro rond, sur tous les chiffres de l'interface.
+- Accueil : « 2 MATCHS EN DIRECT » et le score remontés de 4 px, pour que la
+  ligne FDT ne touche plus le bandeau de message.
+- Vérifié sur la dalle réelle après flash (capture /ecran).
+
+## 4.1.4 — 2026-11-22 — lisibilité 5×10, son coupé
+
+- **Toute l'interface passe en police 5×10** (FONT5) : 33 caractères par ligne,
+  10 px de haut, au lieu du 3×5 de 5 px illisible sur la dalle. Conséquence
+  assumée : moins de contenu par écran (6 sélections, 4 paris, 3 titres), mais
+  lisible à 50 cm. Les 37 écrans ont été relus un par un.
+- Accueil : bloc BATMINO / maquette / mention légale en 5×10, solde en corps
+  double, date sous le bloc.
+- Le réglage « gros texte » disparaît : il n'a plus d'objet quand tout est
+  déjà en 5×10. La page Accessibilité annonce « TEXTE : 5x10 PARTOUT ».
+- **Son coupé par défaut** (`son_clic = false`) : plus de clic à chaque geste.
+  Le réglage reste disponible page Accessibilité, désactivé.
+- Corrections de mise en page : pourcentage qui chevauchait la coche, barre de
+  sélection qui coupait la 3e ligne de l'historique, colonne « n PARIS » qui
+  touchait le montant, jauge mémoire collée à sa valeur, aide de pied tronquée.
+- 598 vérifications (7 suites), firmware 1 271 664 o, 37 captures.
+
 ## 4.1.3 — 2026-11-22 — le M se lit enfin comme un M
 
 - Police 3×5 : le glyphe M avait deux barres au milieu, ce qui le rendait

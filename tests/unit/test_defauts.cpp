@@ -124,7 +124,7 @@ static void test_coupon_plein(void)
     e.grille_cochee = 0x0003;
     v.page = (uint8_t)fdj_module_page(FDJ_M_COUPON); v.curseur = 0;
     int items = fdj_page_items(v.page, &v);
-    OK(items == 12, "10 selections + 2 actions = 12 items");
+    OK(items == 6, "4 lignes visibles + 2 actions = 6 items");
 
     int positions_ok = 0;
     for (int k = 0; k < items; k++) {
@@ -161,7 +161,7 @@ static void test_historique_detail(void)
 
     v.page = (uint8_t)fdj_module_page(FDJ_M_HIST);
     v.curseur = 0;
-    OK(fdj_page_items(v.page, &v) == FDJ_HIST_PAGE, "5 paris + l'item de defilement = 6 items");
+    OK(fdj_page_items(v.page, &v) == 5, "4 paris + l'item de defilement = 5 items");
 
     /* le detail est un vrai ecran, et il depend du pari */
     int idx0 = fdj_hist_index_recence(&e, 0);
@@ -175,10 +175,10 @@ static void test_historique_detail(void)
     OK(memcmp(fbm, autre, ART_FB_LEN) != 0, "le detail change selon le pari");
 
     /* pagination : le curseur sur le 7e item fait defiler l'anneau */
-    e.hist_off = FDJ_HIST_PAGE;
-    OK(fdj_page_items(v.page, &v) == 6, "page 2 de l'historique : 6 paris");
-    e.hist_off = FDJ_HIST_PAGE * 2 - 1;
-    OK(fdj_page_items(v.page, &v) == 1, "derniere page : 1 pari, pas de defilement");
+    e.hist_off = 8;
+    OK(fdj_page_items(v.page, &v) == 4, "page 3 : 4 paris, plus de defilement");
+    e.hist_off = 11;
+    OK(fdj_page_items(v.page, &v) == 1, "derniere page : 1 pari");
     e.hist_off = 0;
 }
 
@@ -230,32 +230,18 @@ static void test_suppression_profil(void)
     OK(fdj_profil_supprime(&t, 9) == 2, "index hors bornes refuse");
 }
 
-/* ---- 6. gros texte : effet reel sur la majorite des pages ---- */
-static void test_gros_texte(void)
+/* ---- 6. plus de petit texte : chaque ecran tient avec la police 5x10 ---- */
+static void test_police_lisible(void)
 {
-    int changees = 0;
-    uint8_t petit[ART_FB_LEN], grand[ART_FB_LEN];
-    e.gros_texte = false;
-    for (int p = 0; p < FDJ_PAGES; p++) {
-        v.page = p; v.curseur = 0;
-        fdj_ui_dessine(&v, petit);
-        e.gros_texte = true;
-        fdj_ui_dessine(&v, grand);
-        e.gros_texte = false;
-        if (memcmp(petit, grand, ART_FB_LEN) != 0) changees++;
-    }
-    OKF(changees >= 12, "le gros texte change %d ecrans sur %d", changees, FDJ_PAGES);
-
-    /* et il ne casse pas la navigation : chaque page garde ses items */
-    e.gros_texte = true;
+    int pleins = 0;
     for (int p = 0; p < FDJ_PAGES; p++) {
         v.page = p; v.curseur = 0;
         memset(fbm, 0xFF, sizeof(fbm));
         fdj_ui_dessine(&v, fbm);
-        if (noirs_zone(0, 0, 199, 199) < 150) OKF(0, "page %d vide en gros texte", p + 1);
+        /* une page 5x10 a des glyphes de 10 px : au moins 8 lignes de texte */
+        if (noirs_zone(0, 0, 199, 199) > 400) pleins++;
     }
-    e.gros_texte = false;
-    OK(1, "les 20 pages tiennent en gros texte");
+    OKF(pleins == FDJ_PAGES, "%d/%d ecrans rendus en 5x10", pleins, FDJ_PAGES);
 }
 
 /* ---- 7. pause 24 h : une echeance, pas un boolean ---- */
@@ -327,7 +313,7 @@ static void test_version_et_options(void)
 
     fdj_etat_t s;
     fdj_etat_defaut(&s, 1);
-    OK(s.son_clic, "le clic est actif par defaut");
+    OK(!s.son_clic, "le son est coupe par defaut");
     OK(s.pause_debut == 0, "pause sans echeance au depart");
     OK(FDJ_ETAT_VERSION == 4, "le blob NVS est versionne (v4)");
 }
@@ -368,7 +354,7 @@ int main(void)
     test_historique_detail();
     test_ram();
     test_suppression_profil();
-    test_gros_texte();
+    test_police_lisible();
     test_pause();
     test_protection();
     test_version_et_options();

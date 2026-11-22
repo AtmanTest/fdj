@@ -247,19 +247,33 @@ int a_text_col(int x, int y, int s, const char *str, int black)
 int a_text(int x, int y, int s, const char *str) { return a_text_col(x, y, s, str, 1); }
 
 /* texte en 5x10 : utilise pour le logo, ou le M du 3x5 se confond avec un H */
-int a_text5(int x, int y, const char *str)
+int a_text5c(int x, int y, int sc, const char *str, int black)
 {
     int i = 0;
+    if (sc < 1) sc = 1;
     for (const char *p = str; *p; p++) {
         uint8_t code = font5_code((unsigned char)*p);
         if (!code) continue;
         const uint8_t *g = FONT5[code - 1];   /* font5_code est 1-based (0 = inconnu) */
         for (int r = 0; r < FONT5_HAUTEUR; r++)
             for (int c = 0; c < FONT5_LARGEUR; c++)
-                if (g[r] & (1 << c)) a_px(x + i * FONT5_PAS + c, y + r, 1);
+                if (g[r] & (1 << c))
+                    for (int dy = 0; dy < sc; dy++)
+                        for (int dx = 0; dx < sc; dx++)
+                            a_px(x + i * FONT5_PAS * sc + c * sc + dx,
+                                 y + r * sc + dy, black);
         i++;
     }
-    return i > 0 ? i * FONT5_PAS - 1 : 0;
+    return i > 0 ? i * FONT5_PAS * sc - sc : 0;
+}
+
+int a_text5(int x, int y, const char *str) { return a_text5c(x, y, 1, str, 1); }
+
+int a_text5_w(int sc, const char *str)
+{
+    int n = 0;
+    for (const char *p = str; *p; p++) if (font5_code((unsigned char)*p)) n++;
+    return n ? n * FONT5_PAS * (sc < 1 ? 1 : sc) - (sc < 1 ? 1 : sc) : 0;
 }
 
 int a_num(int x, int y, int s, int val, int min_d)

@@ -1,4 +1,4 @@
-# FDT 4.1.0 — BATMino x FDJ (maquette d'entretien)
+# FDT 4.1.4 — BATMino x FDJ (maquette d'entretien)
 
 Firmware complet pour la carte **BATMino** (ESP32-S3, e-paper 200×200, deux
 boutons, micro SD, wifi) : **37 écrans** autour de l'univers FDJ : un intertitre descriptif avant chaque module, navigation
@@ -37,6 +37,11 @@ L'ancien Mino (compagnon, assistant vocal) reste disponible :
 | 18 | ACCESSIBILITÉ | gros texte, contraste, son, langue | NVS |
 | 19 | DONNÉES & RGPD | où vivent les données, flux sortants, effacement, export | NVS + SD |
 | 20 | RÈGLES FDJ | 3 familles, conditions, 8 jeux, limites de la maquette | ce dépôt |
+
+Typographie : **5×10 partout** (33 caractères par ligne, 10 px de haut). Le
+3×5 de la 3.0.0 était illisible sur la dalle réelle ; le passage au 5×10 a
+réduit le nombre de lignes par écran, pas la quantité d'écrans.
+Aucun son par défaut (le réglage existe page Accessibilité, désactivé).
 
 Règle tenue partout : **aucune valeur inventée**. Pas de réseau → `N.D.`,
 pas de match → « AUCUN MATCH EN DIRECT », pas d'heure → « HEURE NON
@@ -161,8 +166,8 @@ ne contient aucun secret.
   verrou de démonstration, pas un secret cryptographique. Il n'est plus
   affiché à l'écran.
 * Aucun tunnel VPN : l'option a été retirée de l'interface.
-* Un seul son : un clic de 25 ms, désactivable (plus de jingle ni de sons
-  montants/descendants).
+* Aucun son par défaut ; le clic de 25 ms reste disponible mais désactivé
+  (plus de jingle ni de sons montants/descendants).
 * Le Wi-Fi est forcé en **2,4 GHz** (le S3 ne voit pas le 5 GHz) ; le réseau
   de démonstration doit être un SSID 2,4 GHz. Trois réseaux sont essayés dans
   l'ordre (hotspot de démo, puis deux secours) ; sur un partage iPhone,

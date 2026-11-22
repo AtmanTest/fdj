@@ -21,7 +21,7 @@ static void test_defauts(void)
     OK(e.code_boot == 0, "code de demarrage 0000");
     OK(!e.code_perso, "code d'usine signale");
     OK(e.page == 0 && e.curseur == 0, "on demarre page 1");
-    OK(!e.pause_24h && e.son_clic && e.news_auto, "options par defaut");
+    OK(!e.pause_24h && !e.son_clic && e.news_auto, "options par defaut (son coupe)");
 }
 
 static void test_serialisation(void)

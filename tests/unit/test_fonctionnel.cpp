@@ -136,7 +136,7 @@ int main(void)
     /* la page paris doit montrer des selections, pas un message d'attente */
     v.page = 2;
     fdj_ui_dessine(&v, fbm);
-    OK(fdj_page_items(2, &v) == top.n, "la page paris liste bien le top");
+    OK(fdj_page_items(2, &v) == (top.n < 6 ? top.n : 6), "la page paris liste le top (6 max)");
     OK(noirs() > 800, "la page paris est dense (10 lignes + titres)");
 
     /* ---- 6. persistance : on eteint et on rallume ---- */
