@@ -19,6 +19,7 @@ SUITES = {
     "pages": "comp",
     "integration": "integ",
     "fonctionnel": "fonc",
+    "defauts": "comp",
 }
 
 LIGNE = re.compile(r"^(\S[^\n]*?)\s+(\d+) verifications,\s+(\d+) echec", re.M)

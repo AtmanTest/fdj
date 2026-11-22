@@ -127,7 +127,7 @@ static void test_navigation_complete(void)
     fdj_nav_t n;
     prepare(&e, &n);
 
-    /* on fait le tour des 19 pages avec le seul bouton 2 */
+    /* on fait le tour des 20 pages avec le seul bouton 2 */
     int pages_vues[FDJ_PAGES] = { 0 };
     pages_vues[n.page] = 1;
     int garde = 0;
@@ -139,7 +139,7 @@ static void test_navigation_complete(void)
     }
     int vues = 0;
     for (int p = 0; p < FDJ_PAGES; p++) vues += pages_vues[p];
-    OK(vues == FDJ_PAGES, "les 19 pages sont atteignables avec B2 seul");
+    OK(vues == FDJ_PAGES, "les 20 pages sont atteignables avec B2 seul");
 
     /* le retour d'urgence marche depuis n'importe ou */
     n.page = 13;

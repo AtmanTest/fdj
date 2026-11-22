@@ -1,4 +1,4 @@
-/*  apercu_fdj.cpp — rend les 19 pages sur le PC, avec des donnees REELLES
+/*  apercu_fdj.cpp — rend les 20 pages sur le PC, avec des donnees REELLES
  *  (fixtures serveur) et ecrit un .fb puis un PNG par page.
  *
  *      g++ -std=c++17 -I main -I /usr/include/cjson -o build/tests/apercu_fdj \
@@ -86,7 +86,6 @@ int main(int argc, char **argv)
     e.sel_cochee = 0x0005;
     e.grille_cochee = 0x0001;
     e.news_lu = 0x0002;
-    e.vpn = true;
 
     fdj_vue_t v;
     memset(&v, 0, sizeof(v));
@@ -101,7 +100,9 @@ int main(int argc, char **argv)
     v.bat_pct = 87;
     v.heap_int_libre = 138 * 1024;
     v.heap_int_max = 96 * 1024;
+    v.heap_int_total = 320 * 1024;
     v.psram_libre = 7730 * 1024;
+    v.psram_total = 8 * 1024 * 1024;
     v.sd_ok = true;
     v.rendu_ms = 11;
     v.ecran_ms = 480;
@@ -115,7 +116,7 @@ int main(int argc, char **argv)
     char chemin[256];
     for (int p = 0; p < FDJ_PAGES; p++) {
         v.page = p;
-        v.curseur = p == 1 ? 2 : (p == 6 ? 0 : 0);
+        v.curseur = (p == 2) ? 2 : 0;
         fdj_ui_dessine(&v, fbuf);
         snprintf(chemin, sizeof(chemin), "%s/p%02d.fb", dossier, p + 1);
         FILE *f = fopen(chemin, "wb");

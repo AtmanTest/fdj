@@ -1,9 +1,9 @@
-# User stories — FDT 3.0.0 (BATMino x FDJ)
+# User stories — FDT 4.0.0 (BATMino x FDJ)
 
 Six histoires couvrent toute la maquette. Chacune a ses **critères
 d'acceptation** (AC), ses **tests** (suite + nombre de vérifications réelles)
 et sa **technologie**. La somme des vérifications est celle qu'affiche la
-page 11 du firmware, avec la date de la dernière recette.
+écran 12 du firmware, avec la date de la dernière recette.
 
 Technologies : **C++17** (métier + rendu), **C11** (machine à gestes),
 **ESP-IDF 5.5.1** (carte), **cJSON** (flux sportifs), **g++/gcc** (recette
@@ -115,11 +115,11 @@ il n'y a pas de réseau.*
 | Étage | Suite | Ce qui est vérifié | Techno |
 |-------|-------|--------------------|--------|
 | Unitaire | `test_modele`, `test_nav`, `test_parse` | règles d'argent, hasard, Poisson, gestes, parsing | C++17 / cJSON |
-| Composant | `test_pages` | chaque page rendue, chaque curseur, déterminisme, écrans plein cadre | C++17 + `art.cpp` |
+| Composant | `test_pages`, `test_defauts` | chaque page rendue, chaque curseur, déterminisme, écrans plein cadre | C++17 + `art.cpp` |
 | Intégration | `test_integration` | nav + argent + persistance ensemble | C++17 |
-| Fonctionnel | `test_fonctionnel` | la démo complète sur fixtures serveur, 19 pages, perf, mémoire | C++17 |
+| Fonctionnel | `test_fonctionnel` | la démo complète sur fixtures serveur, 20 écrans, perf, mémoire | C++17 |
 | Matériel | `tools/ecran_usb.py`, API `/etat` | la vraie dalle, la vraie mémoire, le vrai réseau | Python + USB |
 
-`tools/recette.sh` enchaîne les quatre étages, écrit `docs/RECETTE.md` et
-`main/fdj_tests_stats.h`, reconstruit le firmware et rend les 19 pages en PNG.
+`tools/recette.sh` enchaîne les sept suites des quatre étages, écrit `docs/RECETTE.md` et
+`main/fdj_tests_stats.h`, reconstruit le firmware et rend les 20 écrans en PNG.
 Un étage en échec arrête tout : aucune page n'est livrée sans ses tests.

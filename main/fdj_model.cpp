@@ -154,18 +154,19 @@ void fdj_etat_defaut(fdj_etat_t *e, uint32_t graine)
     e->hist_n    = 0;
     e->hist_next = 0;
 
-    e->vpn        = false;
-    e->musique    = true;
+    e->son_clic   = true;
     e->news_auto  = true;
     e->gros_texte = false;
     e->mode_demo  = false;
     e->verif_age  = true;
     e->pause_24h  = false;
+    e->pause_debut = 0;
 
     e->graine = graine ? graine : 0x1234567u;
     e->boots  = 0;
     e->page   = 0;
     e->curseur = 0;
+    e->hist_off = 0;
 }
 
 bool fdj_etat_valide(const fdj_etat_t *e)
@@ -285,6 +286,22 @@ bool fdj_profil_selectionne(fdj_etat_t *e, uint8_t idx)
     return true;
 }
 
+/* Suppression reelle d'un profil non actif : le tableau est tasse et
+   l'index du profil actif est corrige. Un profil actif n'est jamais
+   supprime ici (la page demande d'en choisir un autre d'abord). */
+int fdj_profil_supprime(fdj_etat_t *e, uint8_t idx)
+{
+    if (!e || idx >= e->nb_profils || !e->profils[idx].cree) return 2;
+    if (idx == e->profil_actif) return 1;
+    for (uint8_t i = idx; i + 1 < e->nb_profils; i++)
+        e->profils[i] = e->profils[i + 1];
+    e->nb_profils--;
+    memset(&e->profils[e->nb_profils], 0, sizeof(e->profils[0]));
+    if (e->profil_actif > idx) e->profil_actif--;
+    if (e->profil_actif >= e->nb_profils) e->profil_actif = 0;
+    return 0;
+}
+
 fdj_profil_t *fdj_profil_actif(fdj_etat_t *e)
 {
     if (!e || e->profil_actif >= e->nb_profils) return NULL;
@@ -331,15 +348,69 @@ int fdj_mise_verifie(const fdj_etat_t *e, int64_t now, uint32_t mise_ct)
 {
     if (!e) return 1;
     if (mise_ct == 0 || mise_ct > 2000) return 1;          /* 0 a 20 EUR par pari */
-    if (e->pause_24h) return 5;
+    if (fdj_pause_active(e, now)) return 5;
     const fdj_profil_t *p = fdj_profil_actif_c(e);
     if (!p) return 1;
     if (mise_ct > p->solde_ct) return 4;
     uint32_t sem = 0, mois = 0;
     fdj_depenses(e, now, &sem, &mois);
-    if (p->plafond_sem_ct && sem + mise_ct > p->plafond_sem_ct)  return 2;
+    uint32_t plaf_sem = fdj_plafond_sem_effectif(e);
+    if (plaf_sem && sem + mise_ct > plaf_sem)  return 2;
     if (p->plafond_mois_ct && mois + mise_ct > p->plafond_mois_ct) return 3;
     return 0;
+}
+
+/* ---------------------------------------------------------------- */
+/* jeu responsable : reponses et plafond effectif                    */
+/* ---------------------------------------------------------------- */
+int fdj_protection_score(const fdj_etat_t *e)
+{
+    if (!e) return 0;
+    int n = 0;
+    for (int i = 0; i < 5; i++)
+        if (e->sel_cochee & (1u << (8 + i))) n++;
+    return n;
+}
+
+/* Un joueur qui a commence a repondre et se declare fragile (moins de
+   3 reponses positives) voit son plafond hebdomadaire divise par deux.
+   Sans aucune reponse, on ne presume rien : le plafond du profil reste. */
+uint32_t fdj_plafond_sem_effectif(const fdj_etat_t *e)
+{
+    const fdj_profil_t *p = fdj_profil_actif_c(e);
+    if (!p) return 0;
+    int s = fdj_protection_score(e);
+    if (s > 0 && s < 3) return p->plafond_sem_ct / 2;
+    return p->plafond_sem_ct;
+}
+
+/* ---------------------------------------------------------------- */
+/* pause 24 h : une vraie echeance, pas un simple booléen            */
+/* ---------------------------------------------------------------- */
+bool fdj_pause_active(const fdj_etat_t *e, int64_t now)
+{
+    if (!e || !e->pause_24h) return false;
+    /* sans horloge valide, on ne fabrique pas d'echeance : la pause reste
+       active et l'ecran ecrit que la fin est inconnue. */
+    if (now <= 0 || e->pause_debut <= 0) return true;
+    return now < e->pause_debut + 86400;
+}
+
+void fdj_pause_active_maj(fdj_etat_t *e, int64_t now)
+{
+    if (!e || !e->pause_24h) return;
+    if (now > 0 && e->pause_debut > 0 && now >= e->pause_debut + 86400) {
+        e->pause_24h   = false;
+        e->pause_debut = 0;
+    }
+}
+
+/* secondes restantes, -1 si l'echeance ne peut pas etre calculee */
+int64_t fdj_pause_restant_s(const fdj_etat_t *e, int64_t now)
+{
+    if (!fdj_pause_active(e, now)) return 0;
+    if (now <= 0 || e->pause_debut <= 0) return -1;
+    return e->pause_debut + 86400 - now;
 }
 
 int fdj_pari_ajoute(fdj_etat_t *e, const char *libelle, const char *code,

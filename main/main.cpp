@@ -1,6 +1,6 @@
 /*  main.cpp — la carte, et rien d'autre.
  *
- *  BATMino x FDJ, maquette de demonstration (FDT 3.0.0).
+ *  BATMino x FDJ, maquette de demonstration (FDT 4.0.0).
  *  Ici : alimentation, e-paper, audio, carte SD, wifi, boutons.
  *  Tout le metier est dans fdj_app.cpp, tout le dessin dans fdj_ui.cpp,
  *  et les trois compilent aussi sur le PC pour les tests.

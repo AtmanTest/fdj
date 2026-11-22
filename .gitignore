@@ -18,8 +18,3 @@ __pycache__/
 *.pyc
 *.log
 .DS_Store
-
-build/
-.cache/
-main/secrets.h
-*.pbm

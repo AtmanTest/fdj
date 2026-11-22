@@ -55,6 +55,11 @@ suite fonctionnel test_fonctionnel \
     tests/unit/test_fonctionnel.cpp main/fdj_model.cpp main/fdj_nav.cpp \
     main/fdj_parse.cpp main/fdj_ui.cpp main/art.cpp main/font5.cpp
 
+# 7. defauts : un test par defaut constate en 3.0.0 (doit echouer avant)
+suite defauts test_defauts \
+    tests/unit/test_defauts.cpp main/fdj_model.cpp main/fdj_nav.cpp \
+    main/fdj_ui.cpp main/art.cpp main/font5.cpp
+
 echo
 if [ $rc -eq 0 ]; then echo "unitaires : tout bon"; else echo "unitaires : $rc suite(s) en echec"; fi
 exit $rc

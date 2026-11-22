@@ -73,13 +73,39 @@ static fdj_ecran_fn g_ecran;
 static const char  *g_ssid;
 static bool         g_wifi, g_heure_ok, g_sd_ok;
 static int          g_rssi;
-static bool         g_code_affiche, g_code_erreur, g_code_change;
-static char         g_message[48];
+static bool         g_code_erreur, g_code_change;
+static char         g_message[80];
 static int64_t      g_message_fin;
 static int          g_rendu_ms, g_ecran_ms;
 static int64_t      g_dernier_live, g_dernier_news;
 static volatile bool g_rafraichir;
 static volatile int  g_page_demande = -1;
+static volatile bool g_forcer_live;   /* B2x2 page paris : vraie requete */
+static volatile bool g_forcer_news;   /* B2x2 page news : vraie requete */
+
+/* --- modules (chaque module = un intertitre + une page) ------------- */
+enum {
+    P_ACCUEIL = FDJ_M_ACCUEIL, P_PARIS = FDJ_M_PARIS, P_LOTO = FDJ_M_LOTO,
+    P_HIST = FDJ_M_HIST, P_GAINS = FDJ_M_GAINS, P_NEWS = FDJ_M_NEWS,
+    P_COUPON = FDJ_M_COUPON, P_RESP = FDJ_M_RESP, P_STATS = FDJ_M_STATS,
+    P_STORIES = FDJ_M_STORIES, P_TESTS = FDJ_M_TESTS, P_ARCHI = FDJ_M_ARCHI,
+    P_PERF = FDJ_M_PERF, P_RAM = FDJ_M_RAM, P_COMPTE = FDJ_M_COMPTE,
+    P_PROFILS = FDJ_M_PROFILS, P_ACCES = FDJ_M_ACCES, P_RGPD = FDJ_M_RGPD,
+    P_REGLES = FDJ_M_REGLES
+};
+
+/* l'ecran courant est un intertitre : le geste "decider" avance d'un cran */
+static bool sur_intertitre(void) { return fdj_ecran_est_intertitre(nav.page); }
+static int  module_courant(void) { return fdj_ecran_module(nav.page); }
+static void aller_module(int m) { nav.page = (uint8_t)fdj_module_page(m); nav.curseur = 0; }
+
+/* detail d'un pari (page historique) : plein ecran, toute action le ferme */
+static bool    g_detail;
+static int     g_detail_idx;
+static bool    g_gains_detail;      /* page gains : vue par jeu (B1) */
+static uint8_t g_confirme_action;   /* 0 = effacer tout, 1 = supprimer profil */
+static uint8_t g_confirme_idx;
+static int64_t g_news_demande_ms;   /* anti-repetition du B2x2 "forcer" */
 
 static uint8_t g_grilles[FDJ_GRILLE_MAX][FDJ_GRILLE_NB];
 static uint8_t g_chances[FDJ_GRILLE_MAX];
@@ -189,29 +215,13 @@ static void sons_tache(void *arg)
     }
 }
 
-static void son_positif(void)
+/* UN SEUL son dans toute l'application : un clic court et discret.
+   Pas de jingle, pas de fanfare, pas de son montant/descendant.
+   Desactivable depuis la page Accessibilite (etat.son_clic). */
+static void son_clic(void)
 {
-    son_file(880, 70, 85);
-    son_file(1320, 100, 85);
-}
-
-static void son_negatif(void)
-{
-    son_file(620, 80, 85);
-    son_file(415, 140, 85);
-}
-
-/* le jingle d'accueil : 4,7 s, une fanfare originale (pas le theme FDJ) */
-static void jingle(void)
-{
-    static const note_t M[] = {
-        { 659, 180, 88 }, { 784, 180, 88 }, { 1047, 360, 88 }, { 0, 120, 0 },
-        { 880, 180, 88 }, { 1047, 180, 88 }, { 1319, 540, 88 }, { 0, 160, 0 },
-        { 1047, 180, 88 }, { 1175, 180, 88 }, { 1319, 360, 88 }, { 1568, 540, 88 },
-        { 0, 300, 0 }, { 1319, 180, 88 }, { 1568, 180, 88 }, { 2093, 800, 88 },
-    };
-    for (size_t i = 0; i < sizeof(M) / sizeof(M[0]); i++)
-        son_file(M[i].freq, M[i].ms, M[i].vol);
+    if (!etat.son_clic) return;
+    son_file(1400, 25, 60);
 }
 
 /* ------------------------------------------------------------------ */
@@ -338,16 +348,18 @@ static void net_tache(void *arg)
     for (;;) {
         if (g_wifi) {
             int64_t t = maintenant();
-            if (t - g_dernier_live > 300 || g_dernier_live == 0) {
+            if (g_forcer_live || t - g_dernier_live > 300 || g_dernier_live == 0) {
+                g_forcer_live = false;
                 g_dernier_live = t;
                 live_rafraichit();
             }
-            if (t - g_dernier_news > 3 * 3600 || g_dernier_news == 0) {
+            if (g_forcer_news || t - g_dernier_news > 3 * 3600 || g_dernier_news == 0) {
+                g_forcer_news = false;
                 g_dernier_news = t;
                 news_rafraichit();
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(30000));
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
 
@@ -383,8 +395,11 @@ static void vue_remplit(void)
     vue.sd_ok = g_sd_ok;
     vue.rendu_ms = g_rendu_ms;
     vue.ecran_ms = g_ecran_ms;
-    vue.code_affiche = g_code_affiche;
+    vue.code_affiche = false;
     vue.nb_grilles = FDJ_GRILLE_MAX;
+    vue.heap_int_total = heap_caps_get_total_size(MALLOC_CAP_INTERNAL);
+    vue.psram_total = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
+    vue.gains_detail = g_gains_detail;
     memcpy(vue.grilles, g_grilles, sizeof(g_grilles));
     memcpy(vue.chances, g_chances, sizeof(g_chances));
     if (message_vivant()) vue.message = g_message;
@@ -395,7 +410,9 @@ static void affiche(bool plein)
 {
     vue_remplit();
     int64_t t0 = esp_timer_get_time();
-    if (nav.mode == FDJ_MODE_CODE) {
+    if (g_detail) {
+        fdj_ui_detail(fb, &etat.hist[g_detail_idx], g_detail_idx);
+    } else if (nav.mode == FDJ_MODE_CODE) {
         const char *titre = "CODE DE DEMARRAGE";
         fdj_ui_demande_code(fb, titre, nav.chiffres, nav.pos, g_code_erreur);
     } else if (nav.mode == FDJ_MODE_CONFIRME) {
@@ -416,17 +433,35 @@ static void affiche(bool plein)
 /* ------------------------------------------------------------------ */
 static bool coupon_valide(void);
 
+/* une seule couleur de son dans toute l'appli : le clic */
+static void pause_bascule(void)
+{
+    if (fdj_pause_active(&etat, maintenant())) {
+        etat.pause_24h = false;
+        etat.pause_debut = 0;
+        dit("PAUSE LEVEE");
+    } else {
+        etat.pause_24h = true;
+        etat.pause_debut = g_heure_ok ? maintenant() : 0;
+        dit(g_heure_ok ? "PAUSE 24 H ACTIVEE" : "PAUSE ACTIVE, FIN INCONNUE");
+    }
+    son_clic();
+}
+
 static void select_ou_cree_profil(void)
 {
     if (nav.curseur < etat.nb_profils) {
+        if (nav.curseur == etat.profil_actif) { dit("PROFIL DEJA ACTIF"); son_clic(); return; }
         fdj_profil_selectionne(&etat, nav.curseur);
-        dit("PROFIL CHANGE");
-        son_positif();
+        char m[40];
+        snprintf(m, sizeof(m), "PROFIL ACTIF : %s", etat.profils[nav.curseur].nom);
+        dit(m);
+        son_clic();
         return;
     }
     if (etat.nb_profils >= FDJ_PROFILS_MAX) {
         dit("4 PROFILS MAXIMUM");
-        son_negatif();
+        son_clic();
         return;
     }
     /* creation : le niveau suit le nombre de profils deja crees */
@@ -438,13 +473,24 @@ static void select_ou_cree_profil(void)
     int k = etat.nb_profils % 3;
     if (fdj_profil_ajoute(&etat, P[k].n, P[k].niv, P[k].s, P[k].m) < 0) {
         dit("CREATION IMPOSSIBLE");
-        son_negatif();
+        son_clic();
         return;
     }
     fdj_profil_selectionne(&etat, (uint8_t)(etat.nb_profils - 1));
     etat.profils[etat.profil_actif].solde_ct = 2000;
     dit("NOUVEAU PROFIL CREE");
-    son_positif();
+    son_clic();
+}
+
+/* suppression d'un profil NON actif : elle existe vraiment */
+static void supprime_profil(uint8_t idx)
+{
+    int r = fdj_profil_supprime(&etat, idx);
+    if (r == 1)      dit("PROFIL ACTIF : ACTIVEZ-EN UN AUTRE");
+    else if (r == 2) dit("PROFIL INTROUVABLE");
+    else             dit("PROFIL SUPPRIME");
+    if (r == 0) etat_sauve();
+    son_clic();
 }
 
 static void efface_tout(void)
@@ -459,17 +505,35 @@ static void efface_tout(void)
     }
     etat_sauve();
     grilles_genere();
+    g_detail = false;
+    g_gains_detail = false;
     fdj_nav_init(&nav, 0, 0);
+    fdj_nav_mode(&nav, FDJ_MODE_CODE);      /* on repart de l'ecran de code */
     dit("DONNEES EFFACEES");
-    son_negatif();
+    son_clic();
+}
+
+/* CSV : on dit combien de lignes ont REELLEMENT ete ecrites, et ou */
+static void csv_ecrit(FILE *f, const char *champ)
+{
+    bool q = strchr(champ, ';') || strchr(champ, '"') || strchr(champ, '\n');
+    if (!q) { fputs(champ, f); return; }
+    fputc('"', f);
+    for (const char *p = champ; *p; p++) {
+        if (*p == '"') fputc('"', f);
+        fputc(*p, f);
+    }
+    fputc('"', f);
 }
 
 static void exporte_csv(void)
 {
-    if (!g_sd_ok) { dit("PAS DE CARTE SD"); son_negatif(); return; }
-    FILE *f = fopen("/sdcard/fdj_historique.csv", "w");
-    if (!f) { dit("ECRITURE IMPOSSIBLE"); son_negatif(); return; }
-    fprintf(f, "date;jeu;libelle;code;mise_eur;gain_eur;statut\n");
+    static const char *CHEMIN = "/sdcard/fdj_historique.csv";
+    if (!g_sd_ok) { dit("PAS DE CARTE SD"); son_clic(); return; }
+    FILE *f = fopen(CHEMIN, "w");
+    if (!f) { dit("ECRITURE IMPOSSIBLE"); son_clic(); return; }
+    fputs("date;jeu;libelle;code;mise_eur;gain_eur;statut\n", f);
+    int lignes = 0;
     for (int i = 0; i < etat.hist_n; i++) {
         int idx = fdj_hist_index_recence(&etat, i);
         if (idx < 0) continue;
@@ -477,16 +541,23 @@ static void exporte_csv(void)
         time_t t = (time_t)p->t;
         struct tm ti;
         localtime_r(&t, &ti);
-        fprintf(f, "%04d-%02d-%02d %02d:%02d;%s;%s;%s;%u,%02u;%u,%02u;%d\n",
+        fprintf(f, "%04d-%02d-%02d %02d:%02d;%s;",
                 ti.tm_year + 1900, ti.tm_mon + 1, ti.tm_mday, ti.tm_hour, ti.tm_min,
-                fdj_jeu_nom(p->jeu), p->libelle, p->code,
+                fdj_jeu_nom(p->jeu));
+        csv_ecrit(f, p->libelle);
+        fprintf(f, ";");
+        csv_ecrit(f, p->code);
+        fprintf(f, ";%u,%02u;%u,%02u;%d\n",
                 (unsigned)(p->mise_ct / 100), (unsigned)(p->mise_ct % 100),
                 (unsigned)(p->gain_ct / 100), (unsigned)(p->gain_ct % 100),
                 (int)p->statut);
+        lignes++;
     }
-    fclose(f);
-    dit("EXPORTE SUR /sdcard");
-    son_positif();
+    if (fclose(f) != 0) { dit("ECRITURE INCOMPLETE"); son_clic(); return; }
+    char m[80];
+    snprintf(m, sizeof(m), "%d LIGNES ECRITES : %s", lignes, CHEMIN);
+    dit(m);
+    son_clic();
 }
 
 /* le coupon : tout est dans le modele (fdj_coupon_valide), teste sur le PC */
@@ -497,59 +568,82 @@ static bool coupon_valide(void)
                               maintenant(), msg, sizeof(msg));
     if (r) {
         dit(msg);
-        son_negatif();
+        son_clic();
         return false;
     }
     etat_sauve();
     dit(msg);
-    son_positif();
-    nav.page = 3;            /* on montre l'historique qui vient de se remplir */
+    son_clic();
+    aller_module(P_HIST);          /* l'historique qui vient de se remplir */
     nav.curseur = 0;
+    etat.hist_off = 0;
     return true;
+}
+
+/* ouvre le detail du pari sous le curseur (page historique) */
+static void detail_ouvre(void)
+{
+    int rang = (int)etat.hist_off + nav.curseur;
+    int idx = fdj_hist_index_recence(&etat, rang);
+    if (idx < 0) { dit("RIEN A OUVRIR"); son_clic(); return; }
+    g_detail_idx = idx;
+    g_detail = true;
+    son_clic();
 }
 
 static void action_cocher(void)
 {
-    switch (nav.page) {
-    case 0:          /* accueil : demarrer */
-        nav.page = 1; nav.curseur = 0;
-        son_positif();
+    if (sur_intertitre()) {          /* un intertitre se traverse, il ne bloque pas */
+        nav.page = (uint8_t)(nav.page + 1);
+        nav.curseur = 0;
+        dit("MODULE SUIVANT");
+        son_clic();
+        etat_sauve();
+        return;
+    }
+    switch (module_courant()) {
+    case P_ACCUEIL:
+        nav.page = (uint8_t)(nav.page + 1);   /* intertitre du module 01 */
+        nav.curseur = 0;
+        son_clic();
         break;
-    case 1: {        /* paris : cocher / decocher la selection */
+    case P_PARIS: {
         uint16_t bit = (uint16_t)(1u << nav.curseur);
         bool avant = (etat.sel_cochee & bit) != 0;
         etat.sel_cochee ^= bit;
-        dit(avant ? "SELECTION RETIREE" : "SELECTION AJOUTEE AU COUPON");
-        if (avant) son_negatif(); else son_positif();
+        dit(avant ? "SELECTION RETIREE" : "SELECTION AU COUPON");
+        son_clic();
         break;
     }
-    case 2: {        /* loto : cocher une grille */
-        uint16_t bit = (uint16_t)(1u << nav.curseur);
+    case P_LOTO: {
         if (nav.curseur < FDJ_GRILLE_MAX) {
+            uint8_t bit = (uint8_t)(1u << nav.curseur);
             bool avant = (etat.grille_cochee & bit) != 0;
             etat.grille_cochee ^= bit;
             dit(avant ? "GRILLE RETIREE" : "GRILLE AU COUPON");
-            if (avant) son_negatif(); else son_positif();
         } else {
             grilles_genere();
             dit("NOUVELLES GRILLES");
-            son_positif();
         }
+        son_clic();
         break;
     }
-    case 3:          /* historique : ouvrir le detail */
-        etat.detail_ouvert = (uint8_t)((etat.detail_ouvert == nav.curseur) ? 0xFF : nav.curseur);
-        son_positif();
+    case P_HIST:
+        detail_ouvre();
         break;
-    case 4:          /* gains : la periode mise en avant */
-        dit("PERIODE SELECTIONNEE");
-        son_positif();
+    case P_GAINS:
+        g_gains_detail = !g_gains_detail;
+        dit(g_gains_detail ? "DETAIL PAR JEU" : "VUE RESUMEE");
+        son_clic();
         break;
-    case 5:          /* news : marquer lu */
-        etat.news_lu ^= (uint8_t)(1u << nav.curseur);
-        son_positif();
+    case P_NEWS: {
+        int i = nav.curseur < 4 ? nav.curseur : 0;
+        etat.news_lu ^= (uint8_t)(1u << i);
+        dit((etat.news_lu & (1u << i)) ? "TITRE MARQUE LU" : "TITRE NON LU");
+        son_clic();
         break;
-    case 6: {        /* coupon */
+    }
+    case P_COUPON: {
         int base = 0;
         for (int i = 0; i < top.n; i++) if (etat.sel_cochee & (1u << i)) base++;
         for (int g = 0; g < FDJ_GRILLE_MAX; g++) if (etat.grille_cochee & (1u << g)) base++;
@@ -567,70 +661,80 @@ static void action_cocher(void)
                 k++;
             }
             dit("RETIRE DU COUPON");
-            son_negatif();
+            son_clic();
         } else if (nav.curseur == base) {
             coupon_valide();
         } else {
             etat.sel_cochee = 0;
             etat.grille_cochee = 0;
             dit("COUPON VIDE");
-            son_negatif();
+            son_clic();
         }
         break;
     }
-    case 7:          /* jeu responsable : repondre oui */
+    case P_RESP:
         if (nav.curseur < 5) {
-            etat.sel_cochee |= (uint16_t)(1u << (8 + nav.curseur));
-            son_positif();
+            /* B1 bascule OUI / NON : la reponse a un effet sur le plafond */
+            etat.sel_cochee ^= (uint16_t)(1u << (8 + nav.curseur));
+            int s = fdj_protection_score(&etat);
+            char m[48];
+            if (s > 0 && s < 3)      snprintf(m, sizeof(m), "PROTECTION %d/5 : PLAFOND DIVISE PAR 2", s);
+            else if (s >= 3)         snprintf(m, sizeof(m), "PROTECTION %d/5 : PLAFOND NORMAL", s);
+            else                     snprintf(m, sizeof(m), "PROTECTION 0/5");
+            dit(m);
+            son_clic();
         } else {
-            etat.pause_24h = !etat.pause_24h;
-            dit(etat.pause_24h ? "PAUSE 24 H ACTIVEE" : "PAUSE LEVEE");
-            if (etat.pause_24h) son_negatif(); else son_positif();
+            pause_bascule();
         }
         break;
-    case 8: case 9: case 10: case 11: case 12: case 13:
-        dit("PAGE D'INFORMATION");
-        break;
-    case 14:         /* compte */
-        if (nav.curseur == 3) {                 /* reveler le mot de passe */
-            g_code_affiche = !g_code_affiche;
-            dit(g_code_affiche ? "MOT DE PASSE REVELE" : "MOT DE PASSE MASQUE");
-            son_positif();
-        } else if (nav.curseur == 4) {          /* changer le code */
+    case P_COMPTE:
+        if (nav.curseur == 3) {
+            etat.son_clic = !etat.son_clic;
+            dit(etat.son_clic ? "SON DES TOUCHES ON" : "SON DES TOUCHES OFF");
+            son_clic();
+        } else if (nav.curseur == 4) {
             g_code_change = true;
             fdj_nav_mode(&nav, FDJ_MODE_CODE);
             g_code_erreur = false;
             dit("NOUVEAU CODE : 4 CHIFFRES");
-            son_positif();
-        } else if (nav.curseur == 5) {          /* musique */
-            etat.musique = !etat.musique;
-            dit(etat.musique ? "MUSIQUE ON" : "MUSIQUE OFF");
-            son_positif();
+            son_clic();
         } else {
             dit("CHAMP EN LECTURE SEULE");
+            son_clic();
         }
         break;
-    case 15:
+    case P_PROFILS:
         select_ou_cree_profil();
         break;
-    case 16:
+    case P_ACCES:
         if (nav.curseur == 0) {
             etat.gros_texte = !etat.gros_texte;
             dit(etat.gros_texte ? "GROS TEXTE ON" : "GROS TEXTE OFF");
+        } else if (nav.curseur == 2) {
+            etat.son_clic = !etat.son_clic;
+            dit(etat.son_clic ? "SON DES TOUCHES ON" : "SON DES TOUCHES OFF");
         } else {
             dit("REGLAGE FIXE");
         }
-        son_positif();
+        son_clic();
         break;
-    case 17:
-        if (nav.curseur == 0) { fdj_nav_mode(&nav, FDJ_MODE_CONFIRME); son_negatif(); }
-        else if (nav.curseur == 1) exporte_csv();
-        else { nav.page = 18; nav.curseur = 0; son_positif(); }
+    case P_RGPD:
+        if (nav.curseur == 0) {
+            g_confirme_action = 0;
+            g_confirme_idx = 0;
+            fdj_nav_mode(&nav, FDJ_MODE_CONFIRME);
+        } else if (nav.curseur == 1) {
+            exporte_csv();
+        } else {
+            dit("FDT " FDJ_VERSION " - BATMino x FDJ");
+        }
         break;
-    case 18:
-        dit("CONDITIONS SUR FDJ.FR");
+    case P_REGLES:
+        dit("REGLES COMPLETES : FDJ.FR");
+        son_clic();
         break;
     default:
+        dit("PAGE D'INFORMATION");
         break;
     }
     etat_sauve();
@@ -638,29 +742,100 @@ static void action_cocher(void)
 
 static void action_page(void)
 {
-    switch (nav.page) {
-    case 0: nav.page = 1; nav.curseur = 0; son_positif(); break;
-    case 1: etat.graine = fdj_rng_next(&etat.graine); top_recalcule(); dit("TOP 10 REGENERE"); son_positif(); break;
-    case 2: grilles_genere(); dit("NOUVELLES GRILLES"); son_positif(); break;
-    case 5: g_dernier_news = 0; g_rafraichir = true; dit("MISE A JOUR DES TITRES"); son_positif(); break;
-    case 6: coupon_valide(); break;
-    case 14:
+    if (sur_intertitre()) {
+        nav.page = (uint8_t)(nav.page + 1);
+        nav.curseur = 0;
+        dit("MODULE SUIVANT");
+        son_clic();
+        etat_sauve();
+        return;
+    }
+    switch (module_courant()) {
+    case P_ACCUEIL: nav.page = (uint8_t)(nav.page + 1); nav.curseur = 0; son_clic(); break;
+    case P_PARIS:
+        g_forcer_live = true;              /* vraie requete reseau, pas un recalcul */
+        dit("ACTUALISATION DES SCORES...");
+        son_clic();
+        break;
+    case P_LOTO: grilles_genere(); dit("NOUVELLES GRILLES"); son_clic(); break;
+    case P_HIST: {
+        int n = etat.hist_n;
+        if (n == 0) { dit("AUCUN PARI"); }
+        else {
+            etat.hist_off = (uint8_t)(etat.hist_off + FDJ_HIST_PAGE);
+            if (etat.hist_off >= n) etat.hist_off = 0;
+            char m[40];
+            snprintf(m, sizeof(m), "HISTORIQUE : %d / %d", etat.hist_off + 1, n);
+            dit(m);
+        }
+        son_clic();
+        break;
+    }
+    case P_GAINS:
+        g_gains_detail = !g_gains_detail;
+        dit(g_gains_detail ? "DETAIL PAR JEU" : "VUE RESUMEE");
+        son_clic();
+        break;
+    case P_NEWS: {
+        int64_t ms = esp_timer_get_time() / 1000;
+        if (g_news_demande_ms && ms - g_news_demande_ms < 30000) {
+            dit("TROP TOT : 30 S ENTRE DEUX DEMANDES");
+        } else {
+            g_news_demande_ms = ms;
+            g_forcer_news = true;
+            dit("REQUETE DES TITRES EN COURS...");
+        }
+        son_clic();
+        break;
+    }
+    case P_COUPON: coupon_valide(); break;
+    case P_RESP:   pause_bascule(); break;
+    case P_RAM:
+    case P_PERF:
+        /* les mesures sont relues a chaque image : on force une image neuve */
+        g_rafraichir = true;
+        dit("MESURES REFRAICHIES");
+        son_clic();
+        break;
+    case P_COMPTE:
         if (nav.curseur == 4) {
             g_code_change = true;
             fdj_nav_mode(&nav, FDJ_MODE_CODE);
             g_code_erreur = false;
-            son_positif();
+            son_clic();
         } else {
             dit("RIEN A VALIDER ICI");
         }
         break;
-    case 15: select_ou_cree_profil(); break;
-    case 17:
-        if (nav.curseur == 0)      fdj_nav_mode(&nav, FDJ_MODE_CONFIRME);
-        else if (nav.curseur == 1) exporte_csv();
-        else                       dit("FDT 3.0.0 - MAQUETTE");
+    case P_PROFILS: select_ou_cree_profil(); break;
+    case P_ACCES:
+        if (nav.curseur == 0) {
+            etat.gros_texte = !etat.gros_texte;
+            dit(etat.gros_texte ? "GROS TEXTE ON" : "GROS TEXTE OFF");
+        } else if (nav.curseur == 2) {
+            etat.son_clic = !etat.son_clic;
+            dit(etat.son_clic ? "SON DES TOUCHES ON" : "SON DES TOUCHES OFF");
+        } else {
+            dit("REGLAGE FIXE");
+        }
         break;
-    default: dit("PAGE D'INFORMATION"); break;
+    case P_RGPD:
+        if (nav.curseur == 0) {
+            g_confirme_action = 0;
+            fdj_nav_mode(&nav, FDJ_MODE_CONFIRME);
+        } else if (nav.curseur == 1) {
+            exporte_csv();
+        } else {
+            dit("FDT " FDJ_VERSION " - BATMino x FDJ");
+        }
+        break;
+    case P_REGLES:
+        dit("REGLES COMPLETES : FDJ.FR");
+        son_clic();
+        break;
+    default:
+        dit("PAGE D'INFORMATION");
+        break;
     }
     etat_sauve();
 }
@@ -688,6 +863,14 @@ static void app_tache(void *arg)
             affiche(true);
         }
 
+        if (recu && g_detail) {
+            /* le detail est un ecran : n'importe quel geste le referme */
+            g_detail = false;
+            son_clic();
+            affiche(true);
+            recu = false;
+        }
+
         if (recu) {
             int items = fdj_page_items(nav.page, &vue);
             fdj_act_t a = fdj_nav_geste(&nav, items, g.btn, g.type, g.duree_ms);
@@ -701,16 +884,15 @@ static void app_tache(void *arg)
                     fdj_nav_mode(&nav, FDJ_MODE_NAV);
                     g_code_change = false;
                     dit("NOUVEAU CODE ENREGISTRE");
-                    son_positif();
+                    son_clic();
                 } else if (fdj_code_verifie(&etat, code)) {
                     fdj_nav_mode(&nav, FDJ_MODE_NAV);
                     g_code_erreur = false;
                     dit("BONJOUR");
-                    son_positif();
-                    if (etat.musique) jingle();
+                    son_clic();
                 } else {
                     g_code_erreur = true;
-                    son_negatif();
+                    son_clic();
                     fdj_nav_mode(&nav, FDJ_MODE_CODE);
                 }
             } else if (nav.mode == FDJ_MODE_CODE && a == FDJ_ACT_CODE_ANNULE) {
@@ -719,34 +901,50 @@ static void app_tache(void *arg)
                 g_code_erreur = false;
                 dit("SAISIE ANNULEE");
             } else if (nav.mode == FDJ_MODE_CONFIRME && a == FDJ_ACT_CONFIRME) {
-                efface_tout();
+                fdj_nav_mode(&nav, FDJ_MODE_NAV);
+                if (g_confirme_action == 1) supprime_profil(g_confirme_idx);
+                else                        efface_tout();
+                g_confirme_action = 0;
             } else if (nav.mode == FDJ_MODE_CONFIRME && a == FDJ_ACT_CODE_ANNULE) {
                 fdj_nav_mode(&nav, FDJ_MODE_NAV);
-                dit("EFFACEMENT ANNULE");
-                son_negatif();
+                dit("ACTION ANNULEE");
+                son_clic();
             } else {
                 switch (a) {
                 case FDJ_ACT_COCHER:   action_cocher(); break;
                 case FDJ_ACT_DECOCHER: {
-                    if (nav.page == 1) {
+                    if (module_courant() == P_PARIS) {
                         etat.sel_cochee &= (uint16_t)~(1u << nav.curseur);
-                        dit("SELECTION RETIREE"); son_negatif();
-                    } else if (nav.page == 2 && nav.curseur < FDJ_GRILLE_MAX) {
+                        dit("SELECTION RETIREE"); son_clic();
+                    } else if (module_courant() == P_LOTO && nav.curseur < FDJ_GRILLE_MAX) {
                         etat.grille_cochee &= (uint8_t)~(1u << nav.curseur);
-                        dit("GRILLE RETIREE"); son_negatif();
-                    } else if (nav.page == 7 && nav.curseur < 5) {
+                        dit("GRILLE RETIREE"); son_clic();
+                    } else if (module_courant() == P_RESP && nav.curseur < 5) {
                         etat.sel_cochee &= (uint16_t)~(1u << (8 + nav.curseur));
-                        dit("REPONSE EFFACEE"); son_negatif();
+                        dit("REPONSE EFFACEE"); son_clic();
+                    } else if (module_courant() == P_PROFILS && nav.curseur < etat.nb_profils) {
+                        /* suppression d'un profil non actif : confirmation */
+                        if (nav.curseur == etat.profil_actif) {
+                            dit("PROFIL ACTIF : CHANGEZ D'ABORD"); son_clic();
+                        } else {
+                            g_confirme_action = 1;
+                            g_confirme_idx = nav.curseur;
+                            fdj_nav_mode(&nav, FDJ_MODE_CONFIRME);
+                            son_clic();
+                        }
+                    } else if (module_courant() == P_COUPON) {
+                        etat.sel_cochee = 0; etat.grille_cochee = 0;
+                        dit("COUPON VIDE"); son_clic();
                     } else {
                         dit("RIEN A ANNULER");
-                        son_negatif();
+                        son_clic();
                     }
                     break;
                 }
                 case FDJ_ACT_PAGE:     action_page(); break;
-                case FDJ_ACT_ACCUEIL:  son_negatif(); break;
-                case FDJ_ACT_SUIVANT:  son_file(1200, 12, 45); break;   /* tic discret */
-                case FDJ_ACT_PRECEDENT: son_file(700, 20, 45); break;
+                case FDJ_ACT_ACCUEIL:  son_clic(); break;
+                case FDJ_ACT_SUIVANT:  son_clic(); break;
+                case FDJ_ACT_PRECEDENT: son_clic(); break;
                 default: break;
                 }
             }
@@ -759,18 +957,30 @@ static void app_tache(void *arg)
             affiche(plein);
         }
 
+        /* pause arrivee a echeance : on la leve et on redessine */
+        if (etat.pause_24h) {
+            bool avant = fdj_pause_active(&etat, maintenant());
+            fdj_pause_active_maj(&etat, maintenant());
+            if (avant && !fdj_pause_active(&etat, maintenant())) {
+                etat_sauve();
+                dit("PAUSE TERMINEE");
+                g_rafraichir = true;
+            }
+        }
+
         /* le reseau a du neuf, ou la minute a tourne : on redessine */
         int64_t mn = esp_timer_get_time() / 1000 / 60000;
         if (g_rafraichir) {
             g_rafraichir = false;
             affiche(false);
-        } else if (mn != dernier_minute && nav.mode == FDJ_MODE_NAV && nav.page == 0) {
+        } else if (mn != dernier_minute && nav.mode == FDJ_MODE_NAV &&
+                   (!sur_intertitre() &&
+                    (module_courant() == P_ACCUEIL || module_courant() == P_RESP))) {
             dernier_minute = mn;
             affiche(false);
         }
 
-        if ((esp_timer_get_time() / 1000) > 0 && message_vivant())
-            ; /* la prochaine image effacera le message */
+        /* le message expire tout seul : la prochaine image l'effacera */
     }
 }
 
@@ -780,6 +990,39 @@ static void app_tache(void *arg)
 static EventGroupHandle_t wifi_eg;
 #define WIFI_CONNU_BIT 0x1
 
+/* Reseaux essayes dans l'ordre : celui de la demo d'abord, puis les
+   secours de la maison. Tous doivent etre en 2,4 GHz (le S3 ne voit pas
+   le 5 GHz ; sur un partage iPhone, activer "Maximiser la compatibilite"). */
+typedef struct { const char *ssid, *pass; } wifi_reseau_t;
+static const wifi_reseau_t g_reseaux[] = {
+    { WIFI_SSID, WIFI_PASS },
+#ifdef WIFI_SSID_ALT
+    { WIFI_SSID_ALT, WIFI_PASS_ALT },
+#endif
+#ifdef WIFI_SSID_ALT2
+    { WIFI_SSID_ALT2, WIFI_PASS_ALT2 },
+#endif
+};
+static const int g_reseaux_n = (int)(sizeof(g_reseaux) / sizeof(g_reseaux[0]));
+static int  g_reseau_idx;
+static char g_ssid_connecte[33];
+
+/* bascule sur le reseau suivant (secours), sans bloquer l'ecran */
+static void wifi_reseau_suivant(void)
+{
+    g_reseau_idx = (g_reseau_idx + 1) % g_reseaux_n;
+    wifi_config_t wc = {};
+    snprintf((char *)wc.sta.ssid, sizeof(wc.sta.ssid), "%s", g_reseaux[g_reseau_idx].ssid);
+    snprintf((char *)wc.sta.password, sizeof(wc.sta.password), "%s", g_reseaux[g_reseau_idx].pass);
+    wc.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+    wc.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+    wc.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
+    esp_wifi_set_config(WIFI_IF_STA, &wc);
+    esp_wifi_connect();
+    ESP_LOGW(TAG, "wifi : essai du reseau de secours %d/%d", g_reseau_idx + 1, g_reseaux_n);
+    g_rafraichir = true;
+}
+
 static void wifi_evenement(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     (void)arg; (void)data;
@@ -788,12 +1031,16 @@ static void wifi_evenement(void *arg, esp_event_base_t base, int32_t id, void *d
     } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
         g_wifi = false;
         if (wifi_eg) xEventGroupClearBits(wifi_eg, WIFI_CONNU_BIT);
-        esp_wifi_connect();
+        wifi_reseau_suivant();
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         g_wifi = true;
         if (wifi_eg) xEventGroupSetBits(wifi_eg, WIFI_CONNU_BIT);
         wifi_ap_record_t ap;
-        if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) g_rssi = ap.rssi;
+        if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
+            g_rssi = ap.rssi;
+            snprintf(g_ssid_connecte, sizeof(g_ssid_connecte), "%s", (const char *)ap.ssid);
+            g_ssid = g_ssid_connecte;
+        }
         ESP_LOGI(TAG, "wifi connecte : %s (%d dBm)", g_ssid ? g_ssid : "?", g_rssi);
         fdj_app_reseau_pret();
         g_rafraichir = true;
@@ -814,11 +1061,18 @@ static void wifi_demarre(void)
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
                                                         wifi_evenement, NULL, NULL));
 
+    g_reseau_idx = 0;
     wifi_config_t wc = {};
-    snprintf((char *)wc.sta.ssid, sizeof(wc.sta.ssid), "%s", WIFI_SSID);
-    snprintf((char *)wc.sta.password, sizeof(wc.sta.password), "%s", WIFI_PASS);
+    snprintf((char *)wc.sta.ssid, sizeof(wc.sta.ssid), "%s", g_reseaux[0].ssid);
+    snprintf((char *)wc.sta.password, sizeof(wc.sta.password), "%s", g_reseaux[0].pass);
     wc.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+    /* 2,4 GHz obligatoire : le S3 ne voie pas le 5 GHz. On balaie tous les
+       canaux, on trie par signal, et on force la bande 2,4 GHz au driver. */
+    wc.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+    wc.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    esp_wifi_set_band_mode(WIFI_BAND_MODE_2G_ONLY);
+    esp_wifi_set_country_code("FR", true);
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wc));
     ESP_ERROR_CHECK(esp_wifi_start());
 }
@@ -859,11 +1113,11 @@ static int etat_json(char *b, size_t cap)
         "{\"page\":%d,\"curseur\":%d,\"mode\":%d,\"items\":%d,"
         "\"profil\":\"%s\",\"solde_ct\":%u,\"hist\":%d,\"top\":%d,"
         "\"wifi\":%s,\"heure\":%s,\"rendu_ms\":%d,\"ecran_ms\":%d,"
-        "\"heap\":%u,\"psram\":%u,\"version\":\"3.0.0\"}",
+        "\"heap\":%u,\"psram\":%u,\"pages\":%d,\"version\":\"%s\"}",
         (int)nav.page, (int)nav.curseur, (int)nav.mode, fdj_page_items(nav.page, &vue),
         pr ? pr->nom : "?", solde, (int)etat.hist_n, top.n,
         g_wifi ? "true" : "false", g_heure_ok ? "true" : "false",
-        g_rendu_ms, g_ecran_ms, heap, psram);
+        g_rendu_ms, g_ecran_ms, heap, psram, FDJ_PAGES, FDJ_VERSION);
 }
 
 static esp_err_t h_etat(httpd_req_t *req)
@@ -1051,5 +1305,5 @@ void fdj_app_start(const char *ssid, bool sd_ok, fdj_ecran_fn ecran)
     wifi_demarre();
     api_demarre();
     xTaskCreate(console_tache, "fdj-console", 4096, NULL, 2, NULL);
-    ESP_LOGI(TAG, "FDT 3.0.0 pret : 19 pages, code d'usine 0000");
+    ESP_LOGI(TAG, "FDT " FDJ_VERSION " pret : %d pages, code d'usine 0000", FDJ_PAGES);
 }

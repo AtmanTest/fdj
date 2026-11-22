@@ -1,5 +1,91 @@
 # Journal des versions
 
+## 4.1.1 — 2026-11-22 — nettoyage
+
+- Intertitre : la taille du grand titre passe par `fit_s` (largeur) puis par
+  une boucle de hauteur, au lieu de deux calculs dupliqués. Aucun changement
+  visible, aucun avertissement de compilation.
+
+## 4.1.0 — 2026-11-22 — 37 écrans et Wi-Fi de démonstration
+
+### Ajouté
+- **37 écrans** : l'accueil, puis pour chacun des 18 modules un **intertitre
+  descriptif** (grand titre 4 à 6 fois la police de base, une phrase, une note
+  encadrée) suivi de sa page. L'intertitre se traverse avec B1 ou B2×2.
+- Wi-Fi : **trois réseaux** essayés dans l'ordre (hotspot de démonstration
+  d'abord, puis les deux réseaux de la maison), bascule automatique en cas de
+  perte, et affichage du **SSID réellement connecté** au lieu du nom supposé.
+- Tests : 599 vérifications (les 37 écrans sont rendus et testés, chaque
+  module vérifie la présence de son intertitre).
+
+### Modifié
+- Les gestes de page s'appuient sur le **module** et non plus sur un numéro
+  d'écran : ajouter un module ou un intertitre ne décale plus les actions.
+- Le pied de page des intertitres indique « B2 : CONTINUER ».
+
+### Limites
+- Toujours pas de carte branchée : flash, dalle et Wi-Fi réel non exécutés.
+
+## 4.0.1 — 2026-11-22 — documentation de la démonstration
+
+- `docs/DEMO-ENTRETIEN.md` : parcours de 3 minutes, gestes et réponses aux
+  questions probables (le prompt de livraison le demandait).
+- Aucun changement de comportement ; firmware recompilé et recette relancée
+  pour que la version affichée (4.0.1) corresponde au dépôt.
+
+## 4.0.0 — 2026-11-22 — FDT (BATMino x FDJ), refonte visuelle et corrections
+
+Refonte de la maquette pour l'entretien : 20 écrans, gabarit homogène, et
+correction des 13 défauts constatés en 3.0.0. Aucun module métier supprimé.
+
+### Ajouté
+- Écran 02 « ANALYSE & DECISION » : intertitre éditorial inséré entre
+  l'accueil et les paris ; le parcours passe à 20 écrans sans rien perdre.
+- Gabarit commun : bandeau noir titre + « NN/20 » + état réseau, curseur en
+  barre, aide de pied **propre à chaque écran** (gestes réellement câblés).
+- Historique : détail plein écran d'un pari (date, jeu, code, mise, gain
+  confirmé ou potentiel, statut) et pagination de l'anneau par 6.
+- Jeu responsable : la pause 24 h a une **échéance réelle** (début stocké,
+  expiration automatique, temps restant affiché) ; sous 3 réponses de
+  protection, le plafond hebdomadaire est divisé par deux.
+- Profils : suppression réelle d'un profil non actif, avec confirmation.
+- Gains / pertes : « TOUT (32 MAX) » au lieu du faux « 1 AN » ; le sélecteur
+  pilote un détail par période et une ventilation par jeu ; barres avec
+  échelle, pertes sous l'axe et jours nommés.
+- Coupon : mise en page compacte (5 lignes + compteur, totaux et boutons en
+  zones fixes) : plus aucun chevauchement à 10 sélections.
+- Paris : `B2×2` déclenche une **vraie** requête réseau (drapeau consommé par
+  la tâche réseau) et l'écran affiche l'âge de la donnée.
+- News : distinction jamais chargé / chargé puis vide / indisponible, et
+  garde-fou de 30 s sur les demandes forcées.
+- Tests : nouvelle suite `test_defauts` (60 vérifications) — un test par
+  défaut constaté, plus les 20 écrans, le gros texte et la pause.
+- Suite de recette : 477 vérifications, 7 suites, 0 échec au 2026-11-22.
+
+### Corrigé
+- Coupon plein qui se chevauchait (défaut n° 1 de la recette 3.0.0).
+- Détail d'historique calculé puis jamais dessiné.
+- « Refaire les mesures » de la page mémoire non câblé.
+- VPN affiché avec un état et une coche alors qu'aucun tunnel n'existe :
+  l'option est retirée et la page l'explique.
+- « GROS TEXTE » cosmétique : il agrandit désormais les lignes principales
+  (titres, valeurs, libellés) et allège les listes denses.
+- Code de démarrage affiché en clair et faux « secret révélé » : supprimés.
+- Astuces de loto non sourcées : remplacées par trois faits exacts
+  (1 chance sur 19 068 840, etc.).
+- Chiffres d'architecture non mesurés : remplacés par `sizeof(fdj_etat_t)`,
+  `sizeof(fdj_vue_t)` et la taille réelle du framebuffer (200 × 25 octets).
+- Page règles : trois items déclarés sans curseur.
+- Pied de page incohérent avec les gestes réels.
+- Musique, jingle de 5 s et sons montants/descendants : remplacés par un
+  **seul clic de 25 ms**, désactivable depuis Accessibilité.
+- Wi-Fi forcé en 2,4 GHz (`esp_wifi_set_band_mode`, balayage tous canaux).
+- Blob NVS v4 : pause datée et option son ; un blob v3 est refusé proprement.
+
+### Limites de la livraison
+- Compilé et testé sur le PC ; **aucune carte USB branchée** pendant la
+  livraison, donc flash, dalle réelle et Wi-Fi 2,4 GHz **non exécutés**.
+
 ## 3.0.0 — 2026-11-20 — FDT (BATMino x FDJ)
 
 Refonte complète pour la démonstration FDJ. L'ancien Mino est conservé sous

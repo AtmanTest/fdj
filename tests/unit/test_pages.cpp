@@ -191,7 +191,7 @@ int main(void)
         fdj_ui_dessine(&vv, fbm);
         if (noirs() < 100) { OKF(0, "page %d vide sans donnees", p + 1); }
     }
-    OK(1, "19 pages rendues sans reseau, sans historique, sans profil");
+    OK(1, "20 pages rendues sans reseau, sans historique, sans profil");
 
     /* ---- 5. ecrans plein cadre ---- */
     uint8_t ch[4] = { 0, 0, 0, 0 };

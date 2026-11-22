@@ -2,7 +2,7 @@
  *
  *  Scenario joue exactement comme au doigt :
  *    boot -> code 0000 -> page 2 (scores reels) -> deux paris -> coupon ->
- *    historique -> gains -> les 19 pages -> sauvegarde -> redemarrage.
+ *    historique -> gains -> les 20 pages -> sauvegarde -> redemarrage.
  *  Aucune donnee n'est inventee : les scores viennent des fixtures serveur.
  */
 #include "check.h"
@@ -99,7 +99,7 @@ int main(void)
 
     /* ---- 4. le parcours au doigt ---- */
     fdj_nav_mode(&nav, FDJ_MODE_NAV);
-    nav.page = 1;
+    nav.page = 2;                  /* page paris (3/20) */
     nav.curseur = 0;
     for (int i = 0; i < 2 && i < top.n; i++) {
         nav.curseur = (uint8_t)i;
@@ -131,12 +131,12 @@ int main(void)
         fdj_ui_dessine(&v, fbm);
         if (noirs() > 150) pages_ok++;
     }
-    OK(pages_ok == FDJ_PAGES, "les 19 pages s'affichent avec les vraies donnees");
+    OK(pages_ok == FDJ_PAGES, "les 37 ecrans s'affichent avec les vraies donnees");
 
-    /* la page 2 doit montrer des selections, pas un message d'attente */
-    v.page = 1;
+    /* la page paris doit montrer des selections, pas un message d'attente */
+    v.page = 2;
     fdj_ui_dessine(&v, fbm);
-    OK(fdj_page_items(1, &v) == top.n, "la page paris liste bien le top");
+    OK(fdj_page_items(2, &v) == top.n, "la page paris liste bien le top");
     OK(noirs() > 800, "la page paris est dense (10 lignes + titres)");
 
     /* ---- 6. persistance : on eteint et on rallume ---- */

@@ -24,9 +24,10 @@
 /* ---------------------------------------------------------------- */
 /* limites (taillees pour 320 Ko de RAM interne + 8 Mo de PSRAM)     */
 /* ---------------------------------------------------------------- */
-#define FDJ_PAGES            19
+#define FDJ_PAGES            37
 #define FDJ_PROFILS_MAX       4
 #define FDJ_HIST_MAX         32
+#define FDJ_HIST_PAGE         6     /* 6 paris visibles par page d'historique */
 #define FDJ_MATCH_MAX        16
 #define FDJ_SEL_MAX          10
 #define FDJ_GRILLE_NB         5     /* 5 numeros au Loto */
@@ -109,13 +110,13 @@ typedef struct {
     uint8_t    hist_next;         /* prochaine case a ecrire */
 
     /* --- options --- */
-    bool vpn;                     /* option : tunnel VPN avant les appels FDJ */
-    bool musique;                 /* jingle FDJ au demarrage */
+    bool son_clic;                /* le seul son : un clic court, desactivable */
     bool news_auto;               /* un flash info toutes les 3 h */
-    bool gros_texte;              /* accessibilite : corps plus lisible */
+    bool gros_texte;              /* accessibilite : lignes principales agrandies */
     bool mode_demo;               /* donnees de demonstration, clairement marquees */
     bool verif_age;               /* majorite verifiee */
     bool pause_24h;               /* jeu responsable : auto-exclusion */
+    int64_t pause_debut;          /* debut de la pause ; expire apres 24 h */
 
     /* --- divers --- */
     uint32_t graine;              /* etat du xorshift, avance a chaque boot */
@@ -125,10 +126,12 @@ typedef struct {
     uint8_t  grille_cochee;       /* bitmask des grilles de loto cochées    */
     uint8_t  news_lu;             /* bitmask des titres lus                 */
     uint8_t  detail_ouvert;       /* page 4 : entree dont le detail est ouvert */
+    uint8_t  hist_off;            /* page 4 : premier pari affiche (pagination) */
 } fdj_etat_t;
 
-#define FDJ_ETAT_VERSION 3
+#define FDJ_ETAT_VERSION 4
 #define FDJ_MAGIC 0x46444A31u    /* "FDJ1" */
+#define FDJ_VERSION "4.1.1"      /* doit suivre le fichier VERSION */
 
 /* ---------------------------------------------------------------- */
 /* donnees vivantes : matchs en direct + titres + mesures           */
@@ -214,6 +217,9 @@ bool fdj_code_valide(uint16_t code);              /* 0..9999 */
 int  fdj_profil_ajoute(fdj_etat_t *e, const char *nom, uint8_t niveau,
                        uint32_t plafond_sem_ct, uint32_t plafond_mois_ct);
 bool fdj_profil_selectionne(fdj_etat_t *e, uint8_t idx);
+/* supprime un profil NON actif et tasse le tableau. 0 = fait,
+   1 = refuse (actif), 2 = index invalide. */
+int  fdj_profil_supprime(fdj_etat_t *e, uint8_t idx);
 fdj_profil_t *fdj_profil_actif(fdj_etat_t *e);
 const fdj_profil_t *fdj_profil_actif_c(const fdj_etat_t *e);
 
@@ -222,6 +228,10 @@ const fdj_profil_t *fdj_profil_actif_c(const fdj_etat_t *e);
 /* ---------------------------------------------------------------- */
 void fdj_depenses(const fdj_etat_t *e, int64_t now,
                   uint32_t *sem_ct, uint32_t *mois_ct);
+/* reponses de la page jeu responsable : 0..5 (bits 8..12 de sel_cochee) */
+int  fdj_protection_score(const fdj_etat_t *e);
+/* plafond semaine effectif : divise par deux sous 3 reponses de protection */
+uint32_t fdj_plafond_sem_effectif(const fdj_etat_t *e);
 int  fdj_mise_verifie(const fdj_etat_t *e, int64_t now, uint32_t mise_ct);
 /* 0 = ok ; 1 = mise nulle/trop grande ; 2 = plafond semaine ;
    3 = plafond mois ; 4 = solde insuffisant ; 5 = pause jeu responsable  */
@@ -240,6 +250,13 @@ void fdj_pari_regle(fdj_etat_t *e, uint8_t idx, bool gagne);   /* solde + gain *
 void fdj_periode_calcule(const fdj_etat_t *e, int64_t now, int jours,
                          fdj_periode_t *out);
 int  fdj_hist_index_recence(const fdj_etat_t *e, int k);  /* 0 = plus recent */
+
+/* pause de jeu responsable : active seulement 24 h, expiree toute seule.
+   fdj_pause_verifie() leve le drapeau si l'echeance est passee (horloge
+   valide seulement : sans heure synchronisee, now <= 0 ne fait rien). */
+bool fdj_pause_active(const fdj_etat_t *e, int64_t now);
+void fdj_pause_active_maj(fdj_etat_t *e, int64_t now);
+int64_t fdj_pause_restant_s(const fdj_etat_t *e, int64_t now);
 
 /* ---------------------------------------------------------------- */
 /* hasard : xorshift32, uniforme sans biais modulo                   */
