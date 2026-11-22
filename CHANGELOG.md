@@ -1,5 +1,11 @@
 # Journal des versions
 
+## 4.1.2 — 2026-11-22 — outil de flash
+
+- `tools/flash.sh` : détecte le port (ttyACM ou ttyUSB), compile, flashe, puis
+  relit le log série et **confirme la version** annoncée par la carte. Sans
+  carte branchée, il le dit et sort en 2 au lieu d'échouer salement.
+
 ## 4.1.1 — 2026-11-22 — nettoyage
 
 - Intertitre : la taille du grand titre passe par `fit_s` (largeur) puis par
