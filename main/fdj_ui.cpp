@@ -498,9 +498,9 @@ static void p_reglages(const fdj_vue_t *v)
 
     plein(FX0, 142, FX1, 142, 1);
     snprintf(b, sizeof(b), "UNIBET " FDJ_VERSION " - MAQUETTE");
-    t5(6, 148, b);
-    t5(6, 160, "AUCUNE MISE REELLE");
-    t5(6, 172, "@PARISTZOU");
+    t5(6, 144, b);
+    t5(6, 156, "AUCUNE MISE REELLE");
+    t5(6, 168, "@PARISTZOU");
 }
 
 /* ---------------------------------------------------------------- */

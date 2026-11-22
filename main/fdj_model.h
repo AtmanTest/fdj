@@ -131,7 +131,7 @@ typedef struct {
 
 #define FDJ_ETAT_VERSION 6
 #define FDJ_MAGIC 0x46444A31u    /* "FDJ1" */
-#define FDJ_VERSION "5.0.0"      /* doit suivre le fichier VERSION */
+#define FDJ_VERSION "5.0.1"      /* doit suivre le fichier VERSION */
 
 /* ---------------------------------------------------------------- */
 /* donnees vivantes : matchs en direct + titres + mesures           */
