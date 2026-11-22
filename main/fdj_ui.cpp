@@ -103,9 +103,9 @@ static void entete(const fdj_vue_t *v, const char *titre)
     t5w(5, 2, titre);
     char b[16];
     snprintf(b, sizeof(b), "%02d/%d", v->page + 1, FDJ_PAGES);
-    t5w(194 - largeur(b), 2, b);
-    if (v->wifi) plein(185, 4, 193, 10, 0);
-    else         cadre(185, 4, 193, 10, 1);
+    t5w(181 - largeur(b), 2, b);
+    if (v->wifi) plein(187, 4, 195, 10, 0);
+    else         cadre(187, 4, 195, 10, 1);
 }
 
 static void pied(const fdj_vue_t *v)
@@ -137,7 +137,7 @@ static void p_accueil(const fdj_vue_t *v)
     const fdj_etat_t *e = v->e;
     const fdj_profil_t *pr = fdj_profil_actif_c(e);
 
-    t5b(6, 18, "BATMINO");
+    t5b(6, 18, "UNIBET");
     t5(6, 42, "MAQUETTE DE DEMO");
     t5(6, 54, "AUCUNE MISE REELLE");
 
@@ -177,7 +177,7 @@ static void p_accueil(const fdj_vue_t *v)
     else                 t5(6, 150, "DEMARRER LA VISITE");
 
     char bas[40];
-    snprintf(bas, sizeof(bas), "FDT %s - %u DEMARRAGES", FDJ_VERSION, (unsigned)e->boots);
+    snprintf(bas, sizeof(bas), "UNIBET %s - %u DEMARRAGES", FDJ_VERSION, (unsigned)e->boots);
     t5(6, 166, bas);
 }
 
@@ -787,7 +787,7 @@ static void p_stories(const fdj_vue_t *v)
         a_text5c(190 - largeur(c), y, 1, c, col);
     }
     t5(6, 100, "AC = CRITERES D'ACCEPTATION");
-    t5(6, 114, "DETAIL : docs/features/US-FDJ.md");
+    t5(6, 114, "DETAIL : docs/features/US-UNIBET.md");
     t5(6, 130, "CHAQUE HISTOIRE A SES TESTS");
 }
 
@@ -925,10 +925,10 @@ static void p_compte(const fdj_vue_t *v)
         snprintf(ligne[2], sizeof(ligne[2]), "%s %d DBM", v->ssid, v->rssi);
     else
         snprintf(ligne[2], sizeof(ligne[2]), "HORS LIGNE");
-    snprintf(ligne[3], sizeof(ligne[3]), "%s", e->son_clic ? "ON" : "OFF");
+    snprintf(ligne[3], sizeof(ligne[3]), "%s", FDJ_VERSION);
     snprintf(ligne[4], sizeof(ligne[4]), "%s",
              e->code_perso ? "CODE PERSONNALISE" : "CODE D'USINE A MODIFIER");
-    static const char *TITRE[5] = { "TITULAIRE", "COMPTE", "RESEAU", "SON", "CODE" };
+    static const char *TITRE[5] = { "TITULAIRE", "COMPTE", "RESEAU", "VERSION", "CODE" };
     for (int i = 0; i < 5; i++) {
         int y = 18 + i * 26;
         bool sel = (v->curseur == i);
@@ -993,13 +993,11 @@ static void p_profils(const fdj_vue_t *v)
 /* ---------------------------------------------------------------- */
 static void p_acces(const fdj_vue_t *v)
 {
-    char l2[8];
-    snprintf(l2, sizeof(l2), "%s", v->e->son_clic ? "ON" : "OFF");
     struct { const char *t, *val; } O[4] = {
-        { "SON DES TOUCHES", l2 },
-        { "CONTRASTE FORT", "TOUJOURS" },
+        { "CONTRASTE", "MAXIMUM" },
         { "LANGUE", "FRANCAIS" },
         { "TEXTE", "5x10 PARTOUT" },
+        { "SON", "AUCUN" },
     };
     for (int i = 0; i < 4; i++) {
         int y = 18 + i * 26;
@@ -1058,7 +1056,7 @@ static void p_regles(const fdj_vue_t *v)
         int x = 6 + col * 96, y = 84 + row * 12;
         t5(x, y, fdj_jeu_nom((uint8_t)i));
     }
-    t5(6, 140, "TRJ ET REGLES : FDJ.FR");
+    t5(6, 140, "TRJ ET REGLES : UNIBET.FR");
     t5(6, 156, "AUCUNE MISE REELLE");
 }
 
@@ -1210,7 +1208,7 @@ void fdj_ui_demande_code(uint8_t *fb, const char *titre, const uint8_t chiffres[
     art_begin(fb, 0);
     art_clear();
     plein(0, 0, 199, 15, 1);
-    t5w(6, 3, "UNIBET - FDT");
+    t5w(6, 3, "UNIBET");
     t5w(190 - largeur("DEMO"), 3, "DEMO");
 
     t5centre(100, 30, titre);

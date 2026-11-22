@@ -154,7 +154,6 @@ void fdj_etat_defaut(fdj_etat_t *e, uint32_t graine)
     e->hist_n    = 0;
     e->hist_next = 0;
 
-    e->son_clic   = false;   /* ecran de démo : pas de son */
     e->news_auto  = true;
     e->gros_texte = false;
     e->mode_demo  = false;

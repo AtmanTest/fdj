@@ -313,9 +313,9 @@ static void test_version_et_options(void)
 
     fdj_etat_t s;
     fdj_etat_defaut(&s, 1);
-    OK(!s.son_clic, "le son est coupe par defaut");
+    OK(s.pause_debut == 0, "aucune pause lancee au depart");
     OK(s.pause_debut == 0, "pause sans echeance au depart");
-    OK(FDJ_ETAT_VERSION == 4, "le blob NVS est versionne (v4)");
+    OK(FDJ_ETAT_VERSION == 5, "le blob NVS est versionne (v5, sans champ audio)");
 }
 
 /* ---- 10. regles FDJ : trois items, un curseur visible ---- */

@@ -1,7 +1,7 @@
-# FDT 4.1.4 — BATMino x FDJ (maquette d'entretien)
+# UNIBET 4.2.0 — maquette d'entretien (base BATMino)
 
-Firmware complet pour la carte **BATMino** (ESP32-S3, e-paper 200×200, deux
-boutons, micro SD, wifi) : **37 écrans** autour de l'univers FDJ : un intertitre descriptif avant chaque module, navigation
+Firmware complet pour la carte **BATMino** (matériel) (ESP32-S3, e-paper 200×200, deux
+boutons, micro SD, wifi) : **37 écrans** de démonstration Unibet : un intertitre descriptif avant chaque module, navigation
 à deux boutons, argent réel du modèle, scores **en direct**, tests sur le PC.
 
 C'est une **maquette indépendante de démonstration** : aucun compte FDJ,
@@ -118,6 +118,7 @@ Une fois sur le wifi (voir `main/secrets.h`), la carte expose :
 | `/ecran` | la dernière image en hexadécimal (→ `tools/fb2png.py`) |
 | `/bouton?n=1&m=court\|double\|long\|repeat3` | le même geste que le doigt |
 | `/page?n=7` | forcer un écran |
+| `POST /fichier?p=/sdcard/x.zip` | écrire un fichier sur la micro SD |
 
 Sans wifi, la **console USB** fait la même chose : `p 7`, `b 1 double`,
 `e` (état JSON), `s` (écran en hexa). L'API n'est pas exposée à Internet et
@@ -166,8 +167,8 @@ ne contient aucun secret.
   verrou de démonstration, pas un secret cryptographique. Il n'est plus
   affiché à l'écran.
 * Aucun tunnel VPN : l'option a été retirée de l'interface.
-* Aucun son par défaut ; le clic de 25 ms reste disponible mais désactivé
-  (plus de jingle ni de sons montants/descendants).
+* Aucun son : les effets audio ont été retirés du firmware (plus de clic, de
+  jingle ni de sons montants/descendants).
 * Le Wi-Fi est forcé en **2,4 GHz** (le S3 ne voit pas le 5 GHz) ; le réseau
   de démonstration doit être un SSID 2,4 GHz. Trois réseaux sont essayés dans
   l'ordre (hotspot de démo, puis deux secours) ; sur un partage iPhone,

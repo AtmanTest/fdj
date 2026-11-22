@@ -110,7 +110,6 @@ typedef struct {
     uint8_t    hist_next;         /* prochaine case a ecrire */
 
     /* --- options --- */
-    bool son_clic;                /* le seul son : un clic court, desactivable */
     bool news_auto;               /* un flash info toutes les 3 h */
     bool gros_texte;              /* accessibilite : lignes principales agrandies */
     bool mode_demo;               /* donnees de demonstration, clairement marquees */
@@ -129,9 +128,9 @@ typedef struct {
     uint8_t  hist_off;            /* page 4 : premier pari affiche (pagination) */
 } fdj_etat_t;
 
-#define FDJ_ETAT_VERSION 4
+#define FDJ_ETAT_VERSION 5
 #define FDJ_MAGIC 0x46444A31u    /* "FDJ1" */
-#define FDJ_VERSION "4.1.5"      /* doit suivre le fichier VERSION */
+#define FDJ_VERSION "4.2.0"      /* doit suivre le fichier VERSION */
 
 /* ---------------------------------------------------------------- */
 /* donnees vivantes : matchs en direct + titres + mesures           */

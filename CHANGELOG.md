@@ -1,5 +1,20 @@
 # Journal des versions
 
+## 4.2.0 — 2026-11-22 — application Unibet, sans son, copie sur carte SD
+
+- **Marque Unibet** : l'accueil affiche UNIBET (plus BATMINO), la ligne de
+  version devient « UNIBET 4.2.0 », l'écran de code et la page règles
+  renvoient vers UNIBET.FR.
+- **Effets sonores supprimés** : plus de génération de PCM, plus de file de
+  notes, plus de tâche audio, plus de champ `son_clic` dans l'état (blob NVS
+  v5). La page Accessibilité affiche « SON : AUCUN ».
+- **Copie sur la carte SD par le réseau** : `POST /fichier?p=/sdcard/...`
+  écrit un fichier de livraison sur la micro SD de la carte (chemin imposé
+  sous /sdcard, 6 Mo max, réseau local). `tools/sauvegarde_sd.sh` s'en sert
+  quand aucune carte n'est montée sur le PC.
+- Contraste : noir franc sur blanc, sélections en bandeau noir, aucune trame.
+- 598 vérifications, firmware recompilé et flashé, capture relue.
+
 ## 4.1.5 — 2026-11-22 — zéro propre, accueil resserré
 
 - Police 5×10 : le zéro était barré (0x19/0x15/0x13), il lisait « Ø » dans les

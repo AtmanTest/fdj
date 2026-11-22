@@ -25,7 +25,30 @@ for c in /run/media/"$USER"/* /media/"$USER"/* /media/* /mnt/sdcard; do
     carte="$c"; break
 done
 if [ -z "$carte" ]; then
-    echo "SD : aucune carte montee (brancher la carte et relancer)"
+    # pas de carte sur le PC : on passe par la carte BATMino (micro SD interne)
+    ip="${BATMINO_IP:-192.168.8.209}"
+    if curl -s --max-time 3 "http://$ip/etat" >/dev/null 2>&1; then
+        echo "SD : pas de carte montee sur le PC, copie via la carte $ip"
+        ver="$(cat VERSION 2>/dev/null | tr -d '\n')"
+        [ -f "$zip" ] && curl -s --max-time 120 --data-binary "@$zip" \
+            "http://$ip/fichier?p=/sdcard/FDT-${ver}-src.zip" | sed 's/^/SD : zip /'
+        if [ -n "$dernier" ]; then
+            j="$(basename "$dernier")"
+            for f in "$dernier"/*.tar.gz; do
+                [ -f "$f" ] || continue
+                curl -s --max-time 120 --data-binary "@$f" \
+                    "http://$ip/fichier?p=/sdcard/FDT-${j}-batmino.tar.gz" | sed 's/^/SD : tar /'
+            done
+            for f in "$dernier"/*.bundle; do
+                [ -f "$f" ] || continue
+                curl -s --max-time 120 --data-binary "@$f" \
+                    "http://$ip/fichier?p=/sdcard/FDT-${j}-batmino.bundle" | sed 's/^/SD : bundle /'
+            done
+        fi
+        echo "SD : fichiers envoyes sur la micro SD de la carte"
+        exit 0
+    fi
+    echo "SD : aucune carte montee et carte BATMino injoignable (ni SD, ni Wi-Fi)"
     exit 2
 fi
 

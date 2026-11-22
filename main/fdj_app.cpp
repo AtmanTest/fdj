@@ -38,9 +38,10 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "esp_http_server.h"
+#include <sys/stat.h>
+#include <dirent.h>
 #include "driver/usb_serial_jtag.h"
 
-#include "audio_bsp.h"
 #include "art.h"
 #include "geste.h"
 #include "user_config.h"
@@ -67,7 +68,6 @@ static bool        fb_pret;
 
 static SemaphoreHandle_t mux_etat;
 static QueueHandle_t     q_gestes;
-static QueueHandle_t     q_notes;
 
 static fdj_ecran_fn g_ecran;
 static const char  *g_ssid;
@@ -166,63 +166,7 @@ static void etat_sauve(void)
     nvs_close(h);
 }
 
-/* ------------------------------------------------------------------ */
-/* sons : file de notes, tache dediee                                */
-/* ------------------------------------------------------------------ */
-typedef struct { uint16_t freq; uint16_t ms; uint8_t vol; } note_t;
-
-static void son_joue(uint16_t f, uint16_t ms, uint8_t vol)
-{
-    static int16_t pcm[512 * 2];
-    uint8_t *octets = (uint8_t *)pcm;
-    int total = (16000 * (int)ms) / 1000;
-    int fait = 0;
-    audio_playback_set_vol(vol);
-    while (fait < total) {
-        int n = total - fait;
-        if (n > 512) n = 512;
-        for (int i = 0; i < n; i++) {
-            float t = (float)(fait + i) / 16000.0f;
-            /* enveloppe : sans elle, chaque note claque (clics) */
-            float env = 1.0f;
-            int m = (fait + i) * 1000 / (total ? total : 1);
-            if (m < 8) env = (float)m / 8.0f;
-            if (m > 92) env = (float)(100 - m) / 8.0f;
-            int16_t v = 0;
-            if (f)
-                v = (int16_t)(7000.0f * env * sinf(2.0f * 3.14159265f * (float)f * t));
-            pcm[i * 2] = v;
-            pcm[i * 2 + 1] = v;
-        }
-        audio_playback_write(octets, (uint32_t)n * 4);
-        fait += n;
-    }
-}
-
-static void son_file(uint16_t f, uint16_t ms, uint8_t vol)
-{
-    note_t nn = { f, ms, vol };
-    if (q_notes) xQueueSend(q_notes, &nn, 0);
-}
-
-static void sons_tache(void *arg)
-{
-    (void)arg;
-    note_t nn;
-    for (;;) {
-        if (xQueueReceive(q_notes, &nn, portMAX_DELAY) == pdTRUE)
-            son_joue(nn.freq, nn.ms, nn.vol);
-    }
-}
-
-/* UN SEUL son dans toute l'application : un clic court et discret.
-   Pas de jingle, pas de fanfare, pas de son montant/descendant.
-   Desactivable depuis la page Accessibilite (etat.son_clic). */
-static void son_clic(void)
-{
-    if (!etat.son_clic) return;
-    son_file(1400, 25, 60);
-}
+/* Aucun son : les effets audio ont ete retires le 2026-11-22. */
 
 /* ------------------------------------------------------------------ */
 /* HTTP : une reponse entiere en PSRAM, jamais de fuite              */
@@ -445,24 +389,21 @@ static void pause_bascule(void)
         etat.pause_debut = g_heure_ok ? maintenant() : 0;
         dit(g_heure_ok ? "PAUSE 24 H ACTIVEE" : "PAUSE ACTIVE, FIN INCONNUE");
     }
-    son_clic();
 }
 
 static void select_ou_cree_profil(void)
 {
     if (nav.curseur < etat.nb_profils) {
-        if (nav.curseur == etat.profil_actif) { dit("PROFIL DEJA ACTIF"); son_clic(); return; }
+        if (nav.curseur == etat.profil_actif) { dit("PROFIL DEJA ACTIF"); return; }
         fdj_profil_selectionne(&etat, nav.curseur);
         char m[40];
         snprintf(m, sizeof(m), "PROFIL ACTIF : %s", etat.profils[nav.curseur].nom);
         dit(m);
-        son_clic();
-        return;
+            return;
     }
     if (etat.nb_profils >= FDJ_PROFILS_MAX) {
         dit("4 PROFILS MAXIMUM");
-        son_clic();
-        return;
+            return;
     }
     /* creation : le niveau suit le nombre de profils deja crees */
     static const struct { const char *n; uint8_t niv; uint32_t s, m; } P[3] = {
@@ -473,13 +414,11 @@ static void select_ou_cree_profil(void)
     int k = etat.nb_profils % 3;
     if (fdj_profil_ajoute(&etat, P[k].n, P[k].niv, P[k].s, P[k].m) < 0) {
         dit("CREATION IMPOSSIBLE");
-        son_clic();
-        return;
+            return;
     }
     fdj_profil_selectionne(&etat, (uint8_t)(etat.nb_profils - 1));
     etat.profils[etat.profil_actif].solde_ct = 2000;
     dit("NOUVEAU PROFIL CREE");
-    son_clic();
 }
 
 /* suppression d'un profil NON actif : elle existe vraiment */
@@ -490,7 +429,6 @@ static void supprime_profil(uint8_t idx)
     else if (r == 2) dit("PROFIL INTROUVABLE");
     else             dit("PROFIL SUPPRIME");
     if (r == 0) etat_sauve();
-    son_clic();
 }
 
 static void efface_tout(void)
@@ -510,7 +448,6 @@ static void efface_tout(void)
     fdj_nav_init(&nav, 0, 0);
     fdj_nav_mode(&nav, FDJ_MODE_CODE);      /* on repart de l'ecran de code */
     dit("DONNEES EFFACEES");
-    son_clic();
 }
 
 /* CSV : on dit combien de lignes ont REELLEMENT ete ecrites, et ou */
@@ -529,9 +466,9 @@ static void csv_ecrit(FILE *f, const char *champ)
 static void exporte_csv(void)
 {
     static const char *CHEMIN = "/sdcard/fdj_historique.csv";
-    if (!g_sd_ok) { dit("PAS DE CARTE SD"); son_clic(); return; }
+    if (!g_sd_ok) { dit("PAS DE CARTE SD"); return; }
     FILE *f = fopen(CHEMIN, "w");
-    if (!f) { dit("ECRITURE IMPOSSIBLE"); son_clic(); return; }
+    if (!f) { dit("ECRITURE IMPOSSIBLE"); return; }
     fputs("date;jeu;libelle;code;mise_eur;gain_eur;statut\n", f);
     int lignes = 0;
     for (int i = 0; i < etat.hist_n; i++) {
@@ -553,11 +490,10 @@ static void exporte_csv(void)
                 (int)p->statut);
         lignes++;
     }
-    if (fclose(f) != 0) { dit("ECRITURE INCOMPLETE"); son_clic(); return; }
+    if (fclose(f) != 0) { dit("ECRITURE INCOMPLETE"); return; }
     char m[80];
     snprintf(m, sizeof(m), "%d LIGNES ECRITES : %s", lignes, CHEMIN);
     dit(m);
-    son_clic();
 }
 
 /* le coupon : tout est dans le modele (fdj_coupon_valide), teste sur le PC */
@@ -568,12 +504,10 @@ static bool coupon_valide(void)
                               maintenant(), msg, sizeof(msg));
     if (r) {
         dit(msg);
-        son_clic();
-        return false;
+            return false;
     }
     etat_sauve();
     dit(msg);
-    son_clic();
     aller_module(P_HIST);          /* l'historique qui vient de se remplir */
     nav.curseur = 0;
     etat.hist_off = 0;
@@ -585,10 +519,9 @@ static void detail_ouvre(void)
 {
     int rang = (int)etat.hist_off + nav.curseur;
     int idx = fdj_hist_index_recence(&etat, rang);
-    if (idx < 0) { dit("RIEN A OUVRIR"); son_clic(); return; }
+    if (idx < 0) { dit("RIEN A OUVRIR"); return; }
     g_detail_idx = idx;
     g_detail = true;
-    son_clic();
 }
 
 static void action_cocher(void)
@@ -597,23 +530,20 @@ static void action_cocher(void)
         nav.page = (uint8_t)(nav.page + 1);
         nav.curseur = 0;
         dit("MODULE SUIVANT");
-        son_clic();
-        etat_sauve();
+            etat_sauve();
         return;
     }
     switch (module_courant()) {
     case P_ACCUEIL:
         nav.page = (uint8_t)(nav.page + 1);   /* intertitre du module 01 */
         nav.curseur = 0;
-        son_clic();
-        break;
+            break;
     case P_PARIS: {
         uint16_t bit = (uint16_t)(1u << nav.curseur);
         bool avant = (etat.sel_cochee & bit) != 0;
         etat.sel_cochee ^= bit;
         dit(avant ? "SELECTION RETIREE" : "SELECTION AU COUPON");
-        son_clic();
-        break;
+            break;
     }
     case P_LOTO: {
         if (nav.curseur < FDJ_GRILLE_MAX) {
@@ -625,8 +555,7 @@ static void action_cocher(void)
             grilles_genere();
             dit("NOUVELLES GRILLES");
         }
-        son_clic();
-        break;
+            break;
     }
     case P_HIST:
         detail_ouvre();
@@ -634,14 +563,12 @@ static void action_cocher(void)
     case P_GAINS:
         g_gains_detail = !g_gains_detail;
         dit(g_gains_detail ? "DETAIL PAR JEU" : "VUE RESUMEE");
-        son_clic();
-        break;
+            break;
     case P_NEWS: {
         int i = nav.curseur < 4 ? nav.curseur : 0;
         etat.news_lu ^= (uint8_t)(1u << i);
         dit((etat.news_lu & (1u << i)) ? "TITRE MARQUE LU" : "TITRE NON LU");
-        son_clic();
-        break;
+            break;
     }
     case P_COUPON: {
         int base = 0;
@@ -661,15 +588,13 @@ static void action_cocher(void)
                 k++;
             }
             dit("RETIRE DU COUPON");
-            son_clic();
-        } else if (nav.curseur == base) {
+                } else if (nav.curseur == base) {
             coupon_valide();
         } else {
             etat.sel_cochee = 0;
             etat.grille_cochee = 0;
             dit("COUPON VIDE");
-            son_clic();
-        }
+                }
         break;
     }
     case P_RESP:
@@ -682,38 +607,25 @@ static void action_cocher(void)
             else if (s >= 3)         snprintf(m, sizeof(m), "PROTECTION %d/5 : PLAFOND NORMAL", s);
             else                     snprintf(m, sizeof(m), "PROTECTION 0/5");
             dit(m);
-            son_clic();
-        } else {
+                } else {
             pause_bascule();
         }
         break;
     case P_COMPTE:
-        if (nav.curseur == 3) {
-            etat.son_clic = !etat.son_clic;
-            dit(etat.son_clic ? "SON DES TOUCHES ON" : "SON DES TOUCHES OFF");
-            son_clic();
-        } else if (nav.curseur == 4) {
+        if (nav.curseur == 4) {
             g_code_change = true;
             fdj_nav_mode(&nav, FDJ_MODE_CODE);
             g_code_erreur = false;
             dit("NOUVEAU CODE : 4 CHIFFRES");
-            son_clic();
-        } else {
+                } else {
             dit("CHAMP EN LECTURE SEULE");
-            son_clic();
-        }
+                }
         break;
     case P_PROFILS:
         select_ou_cree_profil();
         break;
     case P_ACCES:
-        if (nav.curseur == 0) {
-            etat.son_clic = !etat.son_clic;
-            dit(etat.son_clic ? "SON DES TOUCHES ON" : "SON DES TOUCHES OFF");
-        } else {
-            dit("REGLAGE FIXE");
-        }
-        son_clic();
+        dit("REGLAGE FIXE");
         break;
     case P_RGPD:
         if (nav.curseur == 0) {
@@ -728,8 +640,7 @@ static void action_cocher(void)
         break;
     case P_REGLES:
         dit("REGLES COMPLETES : FDJ.FR");
-        son_clic();
-        break;
+            break;
     default:
         dit("PAGE D'INFORMATION");
         break;
@@ -743,18 +654,16 @@ static void action_page(void)
         nav.page = (uint8_t)(nav.page + 1);
         nav.curseur = 0;
         dit("MODULE SUIVANT");
-        son_clic();
-        etat_sauve();
+            etat_sauve();
         return;
     }
     switch (module_courant()) {
-    case P_ACCUEIL: nav.page = (uint8_t)(nav.page + 1); nav.curseur = 0; son_clic(); break;
+    case P_ACCUEIL: nav.page = (uint8_t)(nav.page + 1); nav.curseur = 0; break;
     case P_PARIS:
         g_forcer_live = true;              /* vraie requete reseau, pas un recalcul */
         dit("ACTUALISATION DES SCORES...");
-        son_clic();
-        break;
-    case P_LOTO: grilles_genere(); dit("NOUVELLES GRILLES"); son_clic(); break;
+            break;
+    case P_LOTO: grilles_genere(); dit("NOUVELLES GRILLES"); break;
     case P_HIST: {
         int n = etat.hist_n;
         if (n == 0) { dit("AUCUN PARI"); }
@@ -765,14 +674,12 @@ static void action_page(void)
             snprintf(m, sizeof(m), "HISTORIQUE : %d / %d", etat.hist_off + 1, n);
             dit(m);
         }
-        son_clic();
-        break;
+            break;
     }
     case P_GAINS:
         g_gains_detail = !g_gains_detail;
         dit(g_gains_detail ? "DETAIL PAR JEU" : "VUE RESUMEE");
-        son_clic();
-        break;
+            break;
     case P_NEWS: {
         int64_t ms = esp_timer_get_time() / 1000;
         if (g_news_demande_ms && ms - g_news_demande_ms < 30000) {
@@ -782,8 +689,7 @@ static void action_page(void)
             g_forcer_news = true;
             dit("REQUETE DES TITRES EN COURS...");
         }
-        son_clic();
-        break;
+            break;
     }
     case P_COUPON: coupon_valide(); break;
     case P_RESP:   pause_bascule(); break;
@@ -792,26 +698,19 @@ static void action_page(void)
         /* les mesures sont relues a chaque image : on force une image neuve */
         g_rafraichir = true;
         dit("MESURES REFRAICHIES");
-        son_clic();
-        break;
+            break;
     case P_COMPTE:
         if (nav.curseur == 4) {
             g_code_change = true;
             fdj_nav_mode(&nav, FDJ_MODE_CODE);
             g_code_erreur = false;
-            son_clic();
-        } else {
+                } else {
             dit("RIEN A VALIDER ICI");
         }
         break;
     case P_PROFILS: select_ou_cree_profil(); break;
     case P_ACCES:
-        if (nav.curseur == 0) {
-            etat.son_clic = !etat.son_clic;
-            dit(etat.son_clic ? "SON DES TOUCHES ON" : "SON DES TOUCHES OFF");
-        } else {
-            dit("REGLAGE FIXE");
-        }
+        dit("REGLAGE FIXE");
         break;
     case P_RGPD:
         if (nav.curseur == 0) {
@@ -825,8 +724,7 @@ static void action_page(void)
         break;
     case P_REGLES:
         dit("REGLES COMPLETES : FDJ.FR");
-        son_clic();
-        break;
+            break;
     default:
         dit("PAGE D'INFORMATION");
         break;
@@ -860,8 +758,7 @@ static void app_tache(void *arg)
         if (recu && g_detail) {
             /* le detail est un ecran : n'importe quel geste le referme */
             g_detail = false;
-            son_clic();
-            affiche(true);
+                    affiche(true);
             recu = false;
         }
 
@@ -878,16 +775,13 @@ static void app_tache(void *arg)
                     fdj_nav_mode(&nav, FDJ_MODE_NAV);
                     g_code_change = false;
                     dit("NOUVEAU CODE ENREGISTRE");
-                    son_clic();
-                } else if (fdj_code_verifie(&etat, code)) {
+                                } else if (fdj_code_verifie(&etat, code)) {
                     fdj_nav_mode(&nav, FDJ_MODE_NAV);
                     g_code_erreur = false;
                     dit("BONJOUR");
-                    son_clic();
-                } else {
+                                } else {
                     g_code_erreur = true;
-                    son_clic();
-                    fdj_nav_mode(&nav, FDJ_MODE_CODE);
+                                    fdj_nav_mode(&nav, FDJ_MODE_CODE);
                 }
             } else if (nav.mode == FDJ_MODE_CODE && a == FDJ_ACT_CODE_ANNULE) {
                 fdj_nav_mode(&nav, FDJ_MODE_NAV);
@@ -902,43 +796,40 @@ static void app_tache(void *arg)
             } else if (nav.mode == FDJ_MODE_CONFIRME && a == FDJ_ACT_CODE_ANNULE) {
                 fdj_nav_mode(&nav, FDJ_MODE_NAV);
                 dit("ACTION ANNULEE");
-                son_clic();
-            } else {
+                        } else {
                 switch (a) {
                 case FDJ_ACT_COCHER:   action_cocher(); break;
                 case FDJ_ACT_DECOCHER: {
                     if (module_courant() == P_PARIS) {
                         etat.sel_cochee &= (uint16_t)~(1u << nav.curseur);
-                        dit("SELECTION RETIREE"); son_clic();
+                        dit("SELECTION RETIREE");
                     } else if (module_courant() == P_LOTO && nav.curseur < FDJ_GRILLE_MAX) {
                         etat.grille_cochee &= (uint8_t)~(1u << nav.curseur);
-                        dit("GRILLE RETIREE"); son_clic();
+                        dit("GRILLE RETIREE");
                     } else if (module_courant() == P_RESP && nav.curseur < 5) {
                         etat.sel_cochee &= (uint16_t)~(1u << (8 + nav.curseur));
-                        dit("REPONSE EFFACEE"); son_clic();
+                        dit("REPONSE EFFACEE");
                     } else if (module_courant() == P_PROFILS && nav.curseur < etat.nb_profils) {
                         /* suppression d'un profil non actif : confirmation */
                         if (nav.curseur == etat.profil_actif) {
-                            dit("PROFIL ACTIF : CHANGEZ D'ABORD"); son_clic();
+                            dit("PROFIL ACTIF : CHANGEZ D'ABORD");
                         } else {
                             g_confirme_action = 1;
                             g_confirme_idx = nav.curseur;
                             fdj_nav_mode(&nav, FDJ_MODE_CONFIRME);
-                            son_clic();
-                        }
+                                                }
                     } else if (module_courant() == P_COUPON) {
                         etat.sel_cochee = 0; etat.grille_cochee = 0;
-                        dit("COUPON VIDE"); son_clic();
+                        dit("COUPON VIDE");
                     } else {
                         dit("RIEN A ANNULER");
-                        son_clic();
-                    }
+                                        }
                     break;
                 }
                 case FDJ_ACT_PAGE:     action_page(); break;
-                case FDJ_ACT_ACCUEIL:  son_clic(); break;
-                case FDJ_ACT_SUIVANT:  son_clic(); break;
-                case FDJ_ACT_PRECEDENT: son_clic(); break;
+                case FDJ_ACT_ACCUEIL:  break;
+                case FDJ_ACT_SUIVANT:  break;
+                case FDJ_ACT_PRECEDENT: break;
                 default: break;
                 }
             }
@@ -1168,6 +1059,63 @@ static esp_err_t h_bouton(httpd_req_t *req)
     return httpd_resp_send(req, "ok", 2);
 }
 
+/* POST /fichier?p=/sdcard/xxx  : copie un fichier de livraison sur la carte.
+   Reserve au reseau local, chemin impose sous /sdcard, taille bornee. */
+/* GET /liste : contenu de la carte SD (nom + taille), pour verifier une copie. */
+static esp_err_t h_liste(httpd_req_t *req)
+{
+    if (!g_sd_ok) { httpd_resp_set_status(req, "503 Service Unavailable"); return httpd_resp_send(req, "sd", 2); }
+    DIR *d = opendir("/sdcard");
+    if (!d) return repond_400(req);
+    char out[1400];
+    int n = 0;
+    n += snprintf(out + n, sizeof(out) - (size_t)n, "[");
+    struct dirent *de;
+    int premier = 1;
+    while ((de = readdir(d)) != NULL && n < (int)sizeof(out) - 80) {
+        if (de->d_name[0] == '.') continue;
+        char p[300];
+        snprintf(p, sizeof(p), "/sdcard/%s", de->d_name);
+        struct stat st;
+        if (stat(p, &st) != 0 || S_ISDIR(st.st_mode)) continue;
+        n += snprintf(out + n, sizeof(out) - (size_t)n, "%s{\"n\":\"%s\",\"o\":%ld}",
+                      premier ? "" : ",", de->d_name, (long)st.st_size);
+        premier = 0;
+    }
+    closedir(d);
+    snprintf(out + n, sizeof(out) - (size_t)n, "]");
+    return httpd_resp_send(req, out, HTTPD_RESP_USE_STRLEN);
+}
+
+static esp_err_t h_fichier(httpd_req_t *req)
+{
+    if (req->method != HTTP_POST) return repond_400(req);
+    char p[96];
+    if (qval(req, "p", p, sizeof(p)) != 0) return repond_400(req);
+    if (strncmp(p, "/sdcard/", 8) != 0 || strstr(p, "..")) return repond_400(req);
+    if (!g_sd_ok) { httpd_resp_set_status(req, "503 Service Unavailable"); return httpd_resp_send(req, "sd", 2); }
+    if (req->content_len == 0) {           /* corps vide = effacer le fichier */
+        remove(p);
+        return httpd_resp_send(req, "0", 1);
+    }
+    if (req->content_len > 6 * 1024 * 1024) return repond_400(req);
+    FILE *f = fopen(p, "wb");
+    if (!f) { httpd_resp_set_status(req, "500 Internal Server Error"); return httpd_resp_send(req, "io", 2); }
+    char buf[1024];
+    int recu = 0;
+    while (recu < (int)req->content_len) {
+        int n = httpd_req_recv(req, buf, sizeof(buf));
+        if (n <= 0) { fclose(f); return repond_400(req); }
+        if ((int)fwrite(buf, 1, (size_t)n, f) != n) { fclose(f); return repond_400(req); }
+        recu += n;
+    }
+    fclose(f);
+    ESP_LOGI(TAG, "fichier ecrit : %s (%d octets)", p, recu);
+    char m[32];
+    snprintf(m, sizeof(m), "%d", recu);
+    return httpd_resp_send(req, m, HTTPD_RESP_USE_STRLEN);
+}
+
 static esp_err_t h_page(httpd_req_t *req)
 {
     char v[8];
@@ -1194,10 +1142,12 @@ static void api_demarre(void)
         { "/ecran",  HTTP_GET, h_ecran,  NULL },
         { "/bouton", HTTP_GET, h_bouton, NULL },
         { "/page",   HTTP_GET, h_page,   NULL },
+        { "/fichier", HTTP_POST, h_fichier, NULL },
+        { "/liste",  HTTP_GET, h_liste,  NULL },
     };
     for (size_t i = 0; i < sizeof(U) / sizeof(U[0]); i++)
         httpd_register_uri_handler(srv, &U[i]);
-    ESP_LOGI(TAG, "api de verification prete : /etat /ecran /bouton /page");
+    ESP_LOGI(TAG, "api de verification prete : /etat /ecran /bouton /page /fichier");
 }
 
 
@@ -1275,7 +1225,6 @@ void fdj_app_start(const char *ssid, bool sd_ok, fdj_ecran_fn ecran)
 
     mux_etat  = xSemaphoreCreateMutex();
     q_gestes  = xQueueCreate(16, sizeof(geste_t));
-    q_notes   = xQueueCreate(24, sizeof(note_t));
 
     memset(&live, 0, sizeof(live));
     memset(&flux, 0, sizeof(flux));
@@ -1288,7 +1237,6 @@ void fdj_app_start(const char *ssid, bool sd_ok, fdj_ecran_fn ecran)
     fdj_nav_init(&nav, 0, 0);
     fdj_nav_mode(&nav, FDJ_MODE_CODE);          /* le code est demande au boot */
 
-    xTaskCreate(sons_tache, "fdj-sons", 3072, NULL, 4, NULL);
     xTaskCreate(app_tache,  "fdj-app",  6144, NULL, 5, NULL);
     /* TLS a besoin de 16 Ko de pile : en RAM interne, la tache deborde et la
        carte redemarre (constate a la premiere recette). Pile en PSRAM. */
