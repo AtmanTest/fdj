@@ -1,0 +1,122 @@
+empreinte du moteur : 112 octets
+
+=== A. galere repetee puis insulte, puis silence ===
+   t(s)   val    act    dom   emotion            int   cort  oxy   fat  trust
+      0  -0.01  -0.01  +0.01  neutre               1%  0.15  0.35  0.00  0.50
+   -> t=  60  EVENEMENT : echec 1 (ca ne marche pas)
+    120  -0.39  +0.16  -0.19  frustration         29%  0.29  0.35  0.00  0.47
+   -> t= 180  EVENEMENT : echec 2 (ca ne marche toujours pas)
+    240  -0.60  +0.34  -0.36  regret              46%  0.42  0.36  0.00  0.43
+   -> t= 300  EVENEMENT : echec 3 (encore)
+    360  -0.54  +0.36  -0.48  peur                43%  0.56  0.36  0.01  0.39
+   -> t= 380  EVENEMENT : insulte ('putain ta gueule')
+    480  -0.53  +0.21  -0.01  colere_contenue     29%  0.73  0.36  0.01  0.31
+    600  -0.27  +0.15  -0.01  tension             10%  0.66  0.36  0.02  0.31
+    720  -0.13  +0.17  -0.07  doute                5%  0.60  0.36  0.02  0.31
+    840  -0.26  +0.12  -0.01  doute                8%  0.54  0.36  0.02  0.31
+    960  -0.19  +0.08  -0.06  doute                3%  0.49  0.36  0.03  0.31
+   1080  -0.23  +0.12  -0.08  doute                5%  0.45  0.36  0.03  0.31
+   1200  -0.18  +0.15  -0.12  doute                4%  0.42  0.36  0.03  0.31
+   1320  -0.01  +0.08  -0.09  doute               11%  0.38  0.36  0.03  0.31
+   1440  +0.01  +0.09  -0.10  doute               12%  0.35  0.36  0.03  0.31
+  etat final : doute, humeur -0.15, attachement 0.31
+
+=== B. apres une nuit blanche (aucun evenement) ===
+   t(s)   val    act    dom   emotion            int   cort  oxy   fat  trust
+   2400  -0.15  -0.05  -0.10  neutre               5%  0.29  0.41  0.60  0.50
+
+===    puis une remarque banale ===
+   t(s)   val    act    dom   emotion            int   cort  oxy   fat  trust
+      0  -0.13  -0.06  -0.10  neutre               6%  0.29  0.41  0.60  0.50
+    120  -0.22  -0.12  -0.05  bouderie             6%  0.29  0.41  0.60  0.50
+    240  -0.32  -0.12  -0.07  bouderie             9%  0.29  0.41  0.60  0.50
+    360  -0.37  -0.06  -0.09  bouderie            10%  0.29  0.41  0.60  0.50
+    480  -0.31  -0.08  -0.09  bouderie             6%  0.29  0.41  0.61  0.50
+    600  -0.24  -0.03  -0.06  bouderie             2%  0.30  0.41  0.61  0.50
+    720  -0.29  -0.08  -0.10  bouderie             4%  0.30  0.41  0.61  0.50
+    840  -0.26  -0.08  -0.03  bouderie             4%  0.30  0.41  0.61  0.50
+    960  -0.45  -0.09  -0.01  bouderie            15%  0.30  0.41  0.62  0.50
+   1080  -0.44  -0.04  -0.09  bouderie            13%  0.30  0.41  0.62  0.50
+   1200  -0.45  +0.01  -0.17  bouderie            14%  0.30  0.41  0.62  0.50
+   1320  -0.61  -0.08  -0.21  deception           25%  0.30  0.42  0.63  0.50
+   1440  -0.61  -0.13  -0.24  deception           24%  0.30  0.42  0.63  0.50
+   1560  -0.63  -0.09  -0.22  deception           23%  0.30  0.42  0.63  0.50
+   1680  -0.42  -0.10  -0.12  deception            7%  0.30  0.42  0.64  0.50
+   1800  -0.53  -0.08  -0.13  deception           14%  0.30  0.42  0.64  0.50
+   1920  -0.63  -0.07  -0.15  deception           20%  0.30  0.42  0.64  0.50
+   2040  -0.44  -0.10  -0.22  deception            8%  0.30  0.42  0.65  0.50
+   2160  -0.35  -0.17  -0.28  deception           10%  0.30  0.42  0.65  0.50
+   2280  -0.36  -0.05  -0.18  deception            3%  0.30  0.42  0.65  0.50
+   2400  -0.36  -0.03  -0.21  regret               4%  0.30  0.42  0.66  0.50
+   -> t=2410  EVENEMENT : remarque banale ('c'est pas ouf')
+   2520  -0.68  -0.07  -0.14  deception           22%  0.40  0.42  0.66  0.50
+   2640  -0.67  -0.05  -0.07  deception           20%  0.39  0.42  0.67  0.50
+   2760  -0.59  -0.10  -0.15  deception           13%  0.38  0.42  0.67  0.50
+   2880  -0.66  -0.13  -0.14  deception           18%  0.37  0.42  0.67  0.50
+   3000  -0.64  +0.00  -0.18  deception           16%  0.36  0.42  0.68  0.50
+   3120  -0.50  -0.09  -0.23  deception            6%  0.35  0.42  0.68  0.50
+   3240  -0.52  -0.08  -0.16  deception            5%  0.35  0.42  0.69  0.50
+
+=== C. succes, remerciement, puis un echec ===
+   t(s)   val    act    dom   emotion            int   cort  oxy   fat  trust
+      0  +0.01  +0.00  -0.01  neutre               1%  0.15  0.35  0.00  0.50
+   -> t=  60  EVENEMENT : succes (le flash passe)
+    120  +0.56  +0.34  +0.29  rire_franc          45%  0.15  0.38  0.00  0.54
+   -> t= 150  EVENEMENT : merci ('tu m'as bien aide')
+    240  +0.40  +0.12  +0.32  bienveillance       29%  0.15  0.46  0.00  0.60
+    360  +0.21  +0.06  +0.18  sourire_en_coin     12%  0.15  0.46  0.00  0.60
+    480  +0.12  +0.12  +0.09  reflexion            6%  0.15  0.46  0.00  0.60
+   -> t= 600  EVENEMENT : echec (meme gravite que A)
+    600  -0.40  +0.62  -0.24  tension             49%  0.32  0.46  0.00  0.57
+    720  -0.20  +0.11  -0.14  doute               21%  0.30  0.46  0.00  0.57
+    840  -0.04  +0.04  -0.18  doute               12%  0.28  0.46  0.00  0.57
+    960  +0.12  +0.01  -0.13  neutre               9%  0.27  0.46  0.00  0.57
+   1080  -0.02  +0.03  -0.09  neutre               7%  0.25  0.46  0.00  0.57
+   1200  -0.04  +0.12  +0.00  neutre               7%  0.24  0.46  0.00  0.57
+   1320  +0.03  -0.00  +0.06  neutre               5%  0.23  0.46  0.00  0.57
+   1440  +0.07  +0.06  +0.05  neutre               3%  0.22  0.46  0.00  0.57
+  etat final : neutre, humeur +0.05, attachement 0.57
+
+=== D. l'autre souffre : compassion ou chagrin ? ===
+   t(s)   val    act    dom   emotion            int   cort  oxy   fat  trust
+      0  +0.02  -0.01  -0.01  neutre               1%  0.15  0.55  0.00  0.75
+     90  -0.10  +0.07  -0.10  neutre              10%  0.15  0.55  0.00  0.75
+   -> t= 120  EVENEMENT : mauvaise nouvelle (deuil, sante)
+    180  -0.46  +0.23  -0.26  frustration         36%  0.38  0.61  0.00  0.75
+    270  -0.23  +0.16  -0.15  compassion          17%  0.36  0.61  0.00  0.75
+    360  -0.04  +0.15  -0.14  compassion           9%  0.34  0.60  0.00  0.75
+    450  +0.03  +0.02  -0.17  compassion           8%  0.32  0.60  0.00  0.75
+    540  -0.05  +0.02  -0.26  compassion          11%  0.31  0.59  0.00  0.75
+    630  +0.12  +0.07  -0.26  compassion          15%  0.29  0.59  0.00  0.75
+    720  +0.04  -0.03  -0.23  compassion          10%  0.28  0.59  0.00  0.75
+    810  -0.03  +0.04  -0.27  compassion          10%  0.27  0.58  0.00  0.75
+    900  +0.06  +0.09  -0.35  compassion          15%  0.26  0.58  0.01  0.75
+
+=== H. meme remarque ('c'est pas ouf') selon la fatigue ===
+  fatigue 0.05 -> neutre         intensite  12%  valence -0.17  cort 0.20
+  fatigue 0.70 -> bouderie       intensite  18%  valence -0.26  cort 0.25
+
+=== G. injustice avec pouvoir d'agir (colere vs peur) ===
+   t(s)   val    act    dom   emotion            int   cort  oxy   fat  trust
+      0  +0.01  +0.01  +0.01  neutre               1%  0.15  0.35  0.00  0.50
+   -> t=  60  EVENEMENT : injustice : on l'accuse d'une panne qu'elle n'a pas causee
+     60  -0.81  +0.73  +0.58  colere              76%  0.45  0.35  0.00  0.41
+    120  -0.63  +0.28  +0.41  colere              50%  0.43  0.35  0.00  0.41
+    180  -0.44  +0.12  +0.35  colere              33%  0.42  0.36  0.00  0.41
+    240  -0.27  +0.15  +0.25  agacement           20%  0.40  0.36  0.00  0.41
+    300  -0.13  +0.12  +0.14  reflexion            9%  0.38  0.36  0.01  0.41
+    360  -0.23  +0.10  +0.14  reflexion           14%  0.37  0.36  0.01  0.41
+
+=== F. le meme echec (c=-0.75) selon l'attachement ===
+  attachement 0.18 -> frustration      intensite  47%  valence -0.57
+  attachement 0.88 -> frustration      intensite  34%  valence -0.37
+
+=== E. aucun evenement pendant 20 min (bruit + humeur) ===
+   t(s)   val    act    dom   emotion            int   cort  oxy   fat  trust
+      0  +0.00  +0.01  -0.01  neutre               1%  0.15  0.35  0.00  0.50
+    180  +0.05  +0.01  -0.07  neutre               5%  0.15  0.36  0.00  0.50
+    360  +0.04  +0.14  -0.07  neutre               8%  0.15  0.36  0.00  0.50
+    540  +0.04  +0.06  -0.13  neutre               7%  0.15  0.37  0.00  0.50
+    720  +0.06  +0.03  -0.04  neutre               4%  0.15  0.37  0.00  0.50
+    900  +0.01  +0.00  -0.03  neutre               1%  0.15  0.38  0.00  0.50
+   1080  +0.07  +0.00  -0.21  neutre              10%  0.15  0.38  0.00  0.50
