@@ -76,28 +76,21 @@ static void decor(void)
         fdj_loto_grille(&sg, v.grilles[i], &v.chances[i]);
 }
 
-/* ---- 1. vingt ecrans, dont l'intertitre a sa place ---- */
-static void test_vingt_ecrans(void)
+/* ---- 1. huit ecrans, pas un de plus ---- */
+static void test_huit_ecrans(void)
 {
-    OK(FDJ_PAGES == 37, "37 ecrans : accueil + 18 x (intertitre, page)");
-    OK(fdj_ecran_est_intertitre(1), "l'ecran 2 est un intertitre");
-    OK(strcmp(fdj_page_titre(1), "PARIS SPORTIFS") == 0, "intertitre du module paris");
-    OK(strcmp(fdj_page_titre(2), "PARIS SPORTIFS") == 0, "page de contenu du module");
-    OK(fdj_page_items(1, &v) == 1, "l'intertitre a un seul item");
+    OK(FDJ_PAGES == 8, "8 ecrans : un par role");
+    static const char *T[8] = {
+        "ACCUEIL", "CONNEXION", "PARIS", "COUPON",
+        "COMPTE", "RESPONSABLE", "PREUVES", "REGLAGES"
+    };
+    for (int p = 0; p < FDJ_PAGES; p++)
+        if (strcmp(fdj_page_titre(p), T[p]) != 0) OKF(0, "titre de l'ecran %d", p + 1);
+
     int inters = 0;
-    for (int p = 1; p < FDJ_PAGES; p++) if (fdj_ecran_est_intertitre(p)) inters++;
-    OK(inters == 18, "un intertitre avant chacun des 18 modules");
-    for (int m = 1; m < FDJ_M_NB; m++)
-        if (!fdj_ecran_est_intertitre(fdj_module_page(m) - 1))
-            OKF(0, "module %d sans intertitre", m);
+    for (int p = 0; p < FDJ_PAGES; p++) if (fdj_ecran_est_intertitre(p)) inters++;
+    OK(inters == 0, "aucun intertitre : 8 ecrans directs");
 
-    v.page = 1; v.curseur = 0;
-    memset(fbm, 0xFF, sizeof(fbm));
-    fdj_ui_dessine(&v, fbm);
-    OK(noirs_zone(0, 30, 199, 110) > 300, "l'intertitre affiche un grand titre");
-    OK(noirs_zone(0, 22, 199, 40) < 1200, "l'intertitre laisse de l'espace blanc");
-
-    /* les 20 pages existent et se dessinent */
     int vues = 0;
     for (int p = 0; p < FDJ_PAGES; p++) {
         v.page = p; v.curseur = 0;
@@ -105,13 +98,13 @@ static void test_vingt_ecrans(void)
         fdj_ui_dessine(&v, fbm);
         if (noirs_zone(0, 0, 199, 199) > 150) vues++;
     }
-    OK(vues == FDJ_PAGES, "les 37 ecrans produisent une image");
+    OK(vues == FDJ_PAGES, "les 8 ecrans produisent une image");
 
-    /* l'aide du pied est propre a la page, pas un texte unique recopie */
+    /* l'aide du pied est propre a la page */
     int differentes = 0;
     for (int p = 1; p < FDJ_PAGES; p++)
         if (strcmp(fdj_page_aide(p), fdj_page_aide(p - 1)) != 0) differentes++;
-    OK(differentes >= 10, "l'aide du pied change selon la page");
+    OK(differentes >= 7, "l'aide du pied change a chaque ecran");
     for (int p = 0; p < FDJ_PAGES; p++)
         if (!fdj_page_aide(p)[0]) OKF(0, "page %d sans aide de pied", p + 1);
 }
@@ -119,12 +112,12 @@ static void test_vingt_ecrans(void)
 /* ---- 2. coupon plein : plus de chevauchement ---- */
 static void test_coupon_plein(void)
 {
-    /* 8 selections sportives + 2 grilles = le pire cas */
-    e.sel_cochee = 0x00FF;
-    e.grille_cochee = 0x0003;
-    v.page = (uint8_t)fdj_module_page(FDJ_M_COUPON); v.curseur = 0;
+    /* 4 selections : le maximum affichable sur le coupon */
+    e.sel_cochee = 0x000F;
+    e.grille_cochee = 0;
+    v.page = FDJ_M_COUPON; v.curseur = 0;
     int items = fdj_page_items(v.page, &v);
-    OK(items == 6, "4 lignes visibles + 2 actions = 6 items");
+    OK(items == 2, "deux actions : valider et vider");
 
     int positions_ok = 0;
     for (int k = 0; k < items; k++) {
@@ -136,13 +129,12 @@ static void test_coupon_plein(void)
     OK(positions_ok == items, "chaque position du coupon plein reste lisible");
 
     /* les zones fixes ont chacune leur encre : rien n'est ecrase */
-    v.curseur = 10;
+    v.curseur = 0;
     memset(fbm, 0xFF, sizeof(fbm));
     fdj_ui_dessine(&v, fbm);
-    OK(noirs_zone(0, 18, 199, 44) > 100, "resume (mise totale) dessine");
-    OK(noirs_zone(0, 46, 199, 122) > 200, "liste des selections dessinee");
-    OK(noirs_zone(0, 130, 199, 164) > 100, "boutons VALIDER / VIDER dessines");
-    OK(noirs_zone(0, 165, 199, 177) > 10, "note LOTO dessinee");
+    OK(noirs_zone(0, 16, 199, 52) > 100, "resume (mise et gain) dessine");
+    OK(noirs_zone(0, 60, 199, 120) > 200, "liste des selections dessinee");
+    OK(noirs_zone(0, 126, 199, 164) > 100, "boutons VALIDER / VIDER dessines");
 
     /* la page ne deborde jamais sous le filet du pied */
     v.curseur = 0;
@@ -152,53 +144,48 @@ static void test_coupon_plein(void)
     e.grille_cochee = 0;
 }
 
-/* ---- 3. historique : detail reel + pagination ---- */
-static void test_historique_detail(void)
+/* ---- 3. detail d'un pari : vrai ecran, depend du pari ---- */
+static void test_detail_pari(void)
 {
     for (int i = 0; i < 12; i++)
         fdj_pari_ajoute(&e, "PARI DE TEST POUR LE DETAIL", "ABC", 200, 450,
                         T0 - (int64_t)i * 86400, FDJ_JEU_SPORT, FDJ_PARI_EN_COURS);
 
-    v.page = (uint8_t)fdj_module_page(FDJ_M_HIST);
-    v.curseur = 0;
-    OK(fdj_page_items(v.page, &v) == 5, "4 paris + l'item de defilement = 5 items");
-
-    /* le detail est un vrai ecran, et il depend du pari */
     int idx0 = fdj_hist_index_recence(&e, 0);
     fdj_ui_detail(fbm, &e.hist[idx0], idx0);
-    int a = noirs_zone(0, 0, 199, 199);
-    OK(a > 400, "l'ecran de detail dessine quelque chose");
+    OK(noirs_zone(0, 0, 199, 199) > 400, "l'ecran de detail dessine quelque chose");
 
     uint8_t autre[ART_FB_LEN];
     int idx1 = fdj_hist_index_recence(&e, 7);
     fdj_ui_detail(autre, &e.hist[idx1], idx1);
     OK(memcmp(fbm, autre, ART_FB_LEN) != 0, "le detail change selon le pari");
 
-    /* pagination : le curseur sur le 7e item fait defiler l'anneau */
-    e.hist_off = 8;
-    OK(fdj_page_items(v.page, &v) == 4, "page 3 : 4 paris, plus de defilement");
-    e.hist_off = 11;
-    OK(fdj_page_items(v.page, &v) == 1, "derniere page : 1 pari");
-    e.hist_off = 0;
+    v.page = FDJ_M_COMPTE;
+    v.curseur = 0;
+    OK(fdj_page_items(v.page, &v) == 1, "le compte tient en un ecran");
 }
 
-/* ---- 4. RAM : capacites reelles, action cablee, plus de faux swap ---- */
-static void test_ram(void)
+/* ---- 4. preuves : les mesures affichees sont les mesures lues ---- */
+static void test_preuves(void)
 {
-    v.page = (uint8_t)fdj_module_page(FDJ_M_RAM);
+    v.page = FDJ_M_PREUVES;
     v.curseur = 0;
+    v.rendu_ms = 4;
+    v.ecran_ms = 580;
     memset(fbm, 0xFF, sizeof(fbm));
     fdj_ui_dessine(&v, fbm);
-    int avec = noirs_zone(0, 20, 199, 120);
+    uint8_t a[ART_FB_LEN];
+    memcpy(a, fbm, sizeof(a));
 
-    fdj_vue_t sans = v;
-    sans.heap_int_total = 0;
-    sans.psram_total = 0;
+    v.rendu_ms = 999;
+    v.ecran_ms = 999;
     memset(fbm, 0xFF, sizeof(fbm));
-    fdj_ui_dessine(&sans, fbm);
-    int sans_totaux = noirs_zone(0, 20, 199, 120);
-    OK(avec > 0 && sans_totaux > 0, "la page memoire se dessine avec ou sans totaux");
-    OK(strstr(fdj_page_aide(v.page), "MESURES") != NULL, "l'action REFAIRE LES MESURES est annoncee");
+    fdj_ui_dessine(&v, fbm);
+    OK(memcmp(a, fbm, ART_FB_LEN) != 0, "la page preuves affiche les vraies mesures");
+    OK(noirs_zone(0, 20, 199, 140) > 300, "la page preuves est remplie");
+
+    v.page = FDJ_M_REGLAGES;
+    OK(fdj_page_items(v.page, &v) == 2, "reglages : deux actions");
 }
 
 /* ---- 5. profils : suppression reelle, refus du profil actif ---- */
@@ -315,19 +302,19 @@ static void test_version_et_options(void)
     fdj_etat_defaut(&s, 1);
     OK(s.pause_debut == 0, "aucune pause lancee au depart");
     OK(s.pause_debut == 0, "pause sans echeance au depart");
-    OK(FDJ_ETAT_VERSION == 5, "le blob NVS est versionne (v5, sans champ audio)");
+    OK(FDJ_ETAT_VERSION == 6, "le blob NVS est versionne (v6, avec session)");
 }
 
-/* ---- 10. regles FDJ : trois items, un curseur visible ---- */
-static void test_regles_curseur(void)
+/* ---- 10. reglages : deux items, un curseur visible ---- */
+static void test_reglages_curseur(void)
 {
-    v.page = (uint8_t)fdj_module_page(FDJ_M_REGLES);
-    OK(fdj_page_items(v.page, &v) == 3, "trois items declares");
+    v.page = FDJ_M_REGLAGES;
+    OK(fdj_page_items(v.page, &v) == 2, "deux items declares");
     uint8_t a[ART_FB_LEN], b[ART_FB_LEN];
     v.curseur = 0; fdj_ui_dessine(&v, a);
     v.curseur = 1; fdj_ui_dessine(&v, b);
     OK(memcmp(a, b, ART_FB_LEN) != 0, "le curseur se deplace vraiment");
-    OK(noirs_zone(0, 20, 199, 110) > 200, "les trois blocs sont dessines");
+    OK(noirs_zone(0, 20, 199, 140) > 200, "les blocs sont dessines");
 }
 
 /* ---- 11. validation atomique : un refus n'ecrit rien ---- */
@@ -349,16 +336,16 @@ static void test_coupon_atomique(void)
 int main(void)
 {
     decor();
-    test_vingt_ecrans();
+    test_huit_ecrans();
     test_coupon_plein();
-    test_historique_detail();
-    test_ram();
+    test_detail_pari();
+    test_preuves();
     test_suppression_profil();
     test_police_lisible();
     test_pause();
     test_protection();
     test_version_et_options();
-    test_regles_curseur();
+    test_reglages_curseur();
     test_coupon_atomique();
     FIN("defauts 3.0.0 corriges");
 }

@@ -139,7 +139,7 @@ static void test_navigation_complete(void)
     }
     int vues = 0;
     for (int p = 0; p < FDJ_PAGES; p++) vues += pages_vues[p];
-    OK(vues == FDJ_PAGES, "les 20 pages sont atteignables avec B2 seul");
+    OK(vues == FDJ_PAGES, "les 8 ecrans sont atteignables avec B2 seul");
 
     /* le retour d'urgence marche depuis n'importe ou */
     n.page = 13;

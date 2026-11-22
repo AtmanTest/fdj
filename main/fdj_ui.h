@@ -18,14 +18,19 @@
 #define FDJ_ECRAN_W 200
 #define FDJ_ECRAN_H 200
 
-/* --- modules du parcours : chacun a son intertitre + sa page --------- *
- * 37 ecrans : accueil + (intertitre + page) x 18 modules.              */
+/* --- les 8 ecrans : un par role, pas de sous-menu ------------------- *
+ * accueil, connexion, paris, coupon, compte, responsable, preuves,     *
+ * reglages. Chaque ecran tient en une dalle de 200x200 et se lit a      *
+ * 50 cm : rien en dessous de la police 5x10.                           */
 typedef enum {
     FDJ_M_ACCUEIL = 0,
-    FDJ_M_PARIS, FDJ_M_LOTO, FDJ_M_HIST, FDJ_M_GAINS, FDJ_M_NEWS,
-    FDJ_M_COUPON, FDJ_M_RESP, FDJ_M_STATS, FDJ_M_STORIES, FDJ_M_TESTS,
-    FDJ_M_ARCHI, FDJ_M_PERF, FDJ_M_RAM, FDJ_M_COMPTE, FDJ_M_PROFILS,
-    FDJ_M_ACCES, FDJ_M_RGPD, FDJ_M_REGLES,
+    FDJ_M_CONNEXION,
+    FDJ_M_PARIS,
+    FDJ_M_COUPON,
+    FDJ_M_COMPTE,
+    FDJ_M_RESP,
+    FDJ_M_PREUVES,
+    FDJ_M_REGLAGES,
     FDJ_M_NB
 } fdj_module_t;
 

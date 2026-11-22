@@ -83,15 +83,12 @@ static volatile int  g_page_demande = -1;
 static volatile bool g_forcer_live;   /* B2x2 page paris : vraie requete */
 static volatile bool g_forcer_news;   /* B2x2 page news : vraie requete */
 
-/* --- modules (chaque module = un intertitre + une page) ------------- */
+/* --- les 8 ecrans de l'application Unibet --------------------------- */
 enum {
-    P_ACCUEIL = FDJ_M_ACCUEIL, P_PARIS = FDJ_M_PARIS, P_LOTO = FDJ_M_LOTO,
-    P_HIST = FDJ_M_HIST, P_GAINS = FDJ_M_GAINS, P_NEWS = FDJ_M_NEWS,
-    P_COUPON = FDJ_M_COUPON, P_RESP = FDJ_M_RESP, P_STATS = FDJ_M_STATS,
-    P_STORIES = FDJ_M_STORIES, P_TESTS = FDJ_M_TESTS, P_ARCHI = FDJ_M_ARCHI,
-    P_PERF = FDJ_M_PERF, P_RAM = FDJ_M_RAM, P_COMPTE = FDJ_M_COMPTE,
-    P_PROFILS = FDJ_M_PROFILS, P_ACCES = FDJ_M_ACCES, P_RGPD = FDJ_M_RGPD,
-    P_REGLES = FDJ_M_REGLES
+    P_ACCUEIL = FDJ_M_ACCUEIL, P_CONNEXION = FDJ_M_CONNEXION,
+    P_PARIS = FDJ_M_PARIS,     P_COUPON = FDJ_M_COUPON,
+    P_COMPTE = FDJ_M_COMPTE,   P_RESP = FDJ_M_RESP,
+    P_PREUVES = FDJ_M_PREUVES, P_REGLAGES = FDJ_M_REGLAGES
 };
 
 /* l'ecran courant est un intertitre : le geste "decider" avance d'un cran */
@@ -508,7 +505,7 @@ static bool coupon_valide(void)
     }
     etat_sauve();
     dit(msg);
-    aller_module(P_HIST);          /* l'historique qui vient de se remplir */
+    nav.page = P_COMPTE;           /* le pari valide se lit dans le compte */
     nav.curseur = 0;
     etat.hist_off = 0;
     return true;
@@ -524,210 +521,112 @@ static void detail_ouvre(void)
     g_detail = true;
 }
 
+/* ouvrir la session : page connexion, mode saisie de code */
+static void ouvre_connexion(void)
+{
+    nav.page = P_CONNEXION;
+    nav.curseur = 0;
+    g_code_change = false;
+    g_code_erreur = false;
+    fdj_nav_mode(&nav, FDJ_MODE_CODE);
+    dit("SAISIR LE CODE");
+}
+
+/* le bouton principal de l'accueil : parier si connecte, sinon se connecter */
+static void ouvrir(void)
+{
+    if (etat.connecte) { nav.page = P_PARIS; nav.curseur = 0; }
+    else               ouvre_connexion();
+}
+
+static void change_code(void)
+{
+    g_code_change = true;
+    g_code_erreur = false;
+    fdj_nav_mode(&nav, FDJ_MODE_CODE);
+    dit("NOUVEAU CODE : 4 CHIFFRES");
+}
+
+static void confirm_efface(void)
+{
+    g_confirme_action = 0;
+    g_confirme_idx = 0;
+    fdj_nav_mode(&nav, FDJ_MODE_CONFIRME);
+}
+
+/* B1 court : cocher / repondre / choisir */
 static void action_cocher(void)
 {
-    if (sur_intertitre()) {          /* un intertitre se traverse, il ne bloque pas */
-        nav.page = (uint8_t)(nav.page + 1);
-        nav.curseur = 0;
-        dit("MODULE SUIVANT");
-            etat_sauve();
-        return;
-    }
-    switch (module_courant()) {
+    switch (nav.page) {
     case P_ACCUEIL:
-        nav.page = (uint8_t)(nav.page + 1);   /* intertitre du module 01 */
-        nav.curseur = 0;
-            break;
+        ouvrir();
+        break;
     case P_PARIS: {
+        if (top.n == 0) { dit("AUCUN MATCH"); break; }
+        if (nav.curseur >= top.n) { dit("HORS LISTE"); break; }
         uint16_t bit = (uint16_t)(1u << nav.curseur);
         bool avant = (etat.sel_cochee & bit) != 0;
         etat.sel_cochee ^= bit;
         dit(avant ? "SELECTION RETIREE" : "SELECTION AU COUPON");
-            break;
-    }
-    case P_LOTO: {
-        if (nav.curseur < FDJ_GRILLE_MAX) {
-            uint8_t bit = (uint8_t)(1u << nav.curseur);
-            bool avant = (etat.grille_cochee & bit) != 0;
-            etat.grille_cochee ^= bit;
-            dit(avant ? "GRILLE RETIREE" : "GRILLE AU COUPON");
-        } else {
-            grilles_genere();
-            dit("NOUVELLES GRILLES");
-        }
-            break;
-    }
-    case P_HIST:
-        detail_ouvre();
-        break;
-    case P_GAINS:
-        g_gains_detail = !g_gains_detail;
-        dit(g_gains_detail ? "DETAIL PAR JEU" : "VUE RESUMEE");
-            break;
-    case P_NEWS: {
-        int i = nav.curseur < 4 ? nav.curseur : 0;
-        etat.news_lu ^= (uint8_t)(1u << i);
-        dit((etat.news_lu & (1u << i)) ? "TITRE MARQUE LU" : "TITRE NON LU");
-            break;
-    }
-    case P_COUPON: {
-        int base = 0;
-        for (int i = 0; i < top.n; i++) if (etat.sel_cochee & (1u << i)) base++;
-        for (int g = 0; g < FDJ_GRILLE_MAX; g++) if (etat.grille_cochee & (1u << g)) base++;
-        if (nav.curseur < base) {
-            /* retirer la selection : on retrouve son bit */
-            int k = 0;
-            for (int i = 0; i < top.n; i++) {
-                if (!(etat.sel_cochee & (1u << i))) continue;
-                if (k == nav.curseur) { etat.sel_cochee &= (uint16_t)~(1u << i); break; }
-                k++;
-            }
-            for (int g = 0; k < base && g < FDJ_GRILLE_MAX; g++) {
-                if (!(etat.grille_cochee & (1u << g))) continue;
-                if (k == nav.curseur) { etat.grille_cochee &= (uint8_t)~(1u << g); break; }
-                k++;
-            }
-            dit("RETIRE DU COUPON");
-                } else if (nav.curseur == base) {
-            coupon_valide();
-        } else {
-            etat.sel_cochee = 0;
-            etat.grille_cochee = 0;
-            dit("COUPON VIDE");
-                }
         break;
     }
+    case P_COUPON:
+        if (nav.curseur == 0) coupon_valide();
+        else { etat.sel_cochee = 0; dit("COUPON VIDE"); }
+        break;
+    case P_COMPTE:
+        if (etat.connecte) { etat.connecte = false; dit("DECONNECTE"); }
+        else ouvre_connexion();
+        break;
     case P_RESP:
         if (nav.curseur < 5) {
-            /* B1 bascule OUI / NON : la reponse a un effet sur le plafond */
             etat.sel_cochee ^= (uint16_t)(1u << (8 + nav.curseur));
-            int s = fdj_protection_score(&etat);
-            char m[48];
-            if (s > 0 && s < 3)      snprintf(m, sizeof(m), "PROTECTION %d/5 : PLAFOND DIVISE PAR 2", s);
-            else if (s >= 3)         snprintf(m, sizeof(m), "PROTECTION %d/5 : PLAFOND NORMAL", s);
-            else                     snprintf(m, sizeof(m), "PROTECTION 0/5");
+            int sc = fdj_protection_score(&etat);
+            char m[52];
+            if (sc > 0 && sc < 3) snprintf(m, sizeof(m), "PROTECTION %d/5 : PLAFOND / 2", sc);
+            else if (sc >= 3)     snprintf(m, sizeof(m), "PROTECTION %d/5 : PLAFOND NORMAL", sc);
+            else                  snprintf(m, sizeof(m), "PROTECTION 0/5");
             dit(m);
-                } else {
+        } else {
             pause_bascule();
         }
         break;
-    case P_COMPTE:
-        if (nav.curseur == 4) {
-            g_code_change = true;
-            fdj_nav_mode(&nav, FDJ_MODE_CODE);
-            g_code_erreur = false;
-            dit("NOUVEAU CODE : 4 CHIFFRES");
-                } else {
-            dit("CHAMP EN LECTURE SEULE");
-                }
+    case P_REGLAGES:
+        if (nav.curseur == 0) change_code();
+        else                  confirm_efface();
         break;
-    case P_PROFILS:
-        select_ou_cree_profil();
-        break;
-    case P_ACCES:
-        dit("REGLAGE FIXE");
-        break;
-    case P_RGPD:
-        if (nav.curseur == 0) {
-            g_confirme_action = 0;
-            g_confirme_idx = 0;
-            fdj_nav_mode(&nav, FDJ_MODE_CONFIRME);
-        } else if (nav.curseur == 1) {
-            exporte_csv();
-        } else {
-            dit("FDT " FDJ_VERSION " - BATMino x FDJ");
-        }
-        break;
-    case P_REGLES:
-        dit("REGLES COMPLETES : FDJ.FR");
-            break;
     default:
-        dit("PAGE D'INFORMATION");
+        dit("RIEN A COCHER ICI");
         break;
     }
     etat_sauve();
 }
 
+/* B2 double : l'action principale de l'ecran */
 static void action_page(void)
 {
-    if (sur_intertitre()) {
-        nav.page = (uint8_t)(nav.page + 1);
-        nav.curseur = 0;
-        dit("MODULE SUIVANT");
-            etat_sauve();
-        return;
-    }
-    switch (module_courant()) {
-    case P_ACCUEIL: nav.page = (uint8_t)(nav.page + 1); nav.curseur = 0; break;
+    switch (nav.page) {
+    case P_ACCUEIL:   ouvrir(); break;
+    case P_CONNEXION: dit("B2 CHIFFRE SUIVANT, B2X2 VALIDE"); break;
     case P_PARIS:
-        g_forcer_live = true;              /* vraie requete reseau, pas un recalcul */
+        g_forcer_live = true;              /* vraie requete reseau */
         dit("ACTUALISATION DES SCORES...");
-            break;
-    case P_LOTO: grilles_genere(); dit("NOUVELLES GRILLES"); break;
-    case P_HIST: {
-        int n = etat.hist_n;
-        if (n == 0) { dit("AUCUN PARI"); }
-        else {
-            etat.hist_off = (uint8_t)(etat.hist_off + FDJ_HIST_PAGE);
-            if (etat.hist_off >= n) etat.hist_off = 0;
-            char m[40];
-            snprintf(m, sizeof(m), "HISTORIQUE : %d / %d", etat.hist_off + 1, n);
-            dit(m);
-        }
-            break;
-    }
-    case P_GAINS:
-        g_gains_detail = !g_gains_detail;
-        dit(g_gains_detail ? "DETAIL PAR JEU" : "VUE RESUMEE");
-            break;
-    case P_NEWS: {
-        int64_t ms = esp_timer_get_time() / 1000;
-        if (g_news_demande_ms && ms - g_news_demande_ms < 30000) {
-            dit("TROP TOT : 30 S ENTRE DEUX DEMANDES");
-        } else {
-            g_news_demande_ms = ms;
-            g_forcer_news = true;
-            dit("REQUETE DES TITRES EN COURS...");
-        }
-            break;
-    }
-    case P_COUPON: coupon_valide(); break;
-    case P_RESP:   pause_bascule(); break;
-    case P_RAM:
-    case P_PERF:
-        /* les mesures sont relues a chaque image : on force une image neuve */
+        break;
+    case P_COUPON:    coupon_valide(); break;
+    case P_COMPTE:
+        if (etat.connecte) { etat.connecte = false; dit("DECONNECTE"); }
+        else               ouvre_connexion();
+        break;
+    case P_RESP:      pause_bascule(); break;
+    case P_PREUVES:
         g_rafraichir = true;
         dit("MESURES REFRAICHIES");
-            break;
-    case P_COMPTE:
-        if (nav.curseur == 4) {
-            g_code_change = true;
-            fdj_nav_mode(&nav, FDJ_MODE_CODE);
-            g_code_erreur = false;
-                } else {
-            dit("RIEN A VALIDER ICI");
-        }
         break;
-    case P_PROFILS: select_ou_cree_profil(); break;
-    case P_ACCES:
-        dit("REGLAGE FIXE");
+    case P_REGLAGES:
+        if (nav.curseur == 0) change_code();
+        else                  confirm_efface();
         break;
-    case P_RGPD:
-        if (nav.curseur == 0) {
-            g_confirme_action = 0;
-            fdj_nav_mode(&nav, FDJ_MODE_CONFIRME);
-        } else if (nav.curseur == 1) {
-            exporte_csv();
-        } else {
-            dit("FDT " FDJ_VERSION " - BATMino x FDJ");
-        }
-        break;
-    case P_REGLES:
-        dit("REGLES COMPLETES : FDJ.FR");
-            break;
-    default:
-        dit("PAGE D'INFORMATION");
-        break;
+    default: break;
     }
     etat_sauve();
 }
@@ -778,7 +677,11 @@ static void app_tache(void *arg)
                                 } else if (fdj_code_verifie(&etat, code)) {
                     fdj_nav_mode(&nav, FDJ_MODE_NAV);
                     g_code_erreur = false;
-                    dit("BONJOUR");
+                    etat.connecte = true;
+                    etat_sauve();
+                    nav.page = P_ACCUEIL;
+                    nav.curseur = 0;
+                    dit("CONNECTE : BONJOUR");
                                 } else {
                     g_code_erreur = true;
                                     fdj_nav_mode(&nav, FDJ_MODE_CODE);
@@ -803,23 +706,11 @@ static void app_tache(void *arg)
                     if (module_courant() == P_PARIS) {
                         etat.sel_cochee &= (uint16_t)~(1u << nav.curseur);
                         dit("SELECTION RETIREE");
-                    } else if (module_courant() == P_LOTO && nav.curseur < FDJ_GRILLE_MAX) {
-                        etat.grille_cochee &= (uint8_t)~(1u << nav.curseur);
-                        dit("GRILLE RETIREE");
                     } else if (module_courant() == P_RESP && nav.curseur < 5) {
                         etat.sel_cochee &= (uint16_t)~(1u << (8 + nav.curseur));
                         dit("REPONSE EFFACEE");
-                    } else if (module_courant() == P_PROFILS && nav.curseur < etat.nb_profils) {
-                        /* suppression d'un profil non actif : confirmation */
-                        if (nav.curseur == etat.profil_actif) {
-                            dit("PROFIL ACTIF : CHANGEZ D'ABORD");
-                        } else {
-                            g_confirme_action = 1;
-                            g_confirme_idx = nav.curseur;
-                            fdj_nav_mode(&nav, FDJ_MODE_CONFIRME);
-                                                }
                     } else if (module_courant() == P_COUPON) {
-                        etat.sel_cochee = 0; etat.grille_cochee = 0;
+                        etat.sel_cochee = 0;
                         dit("COUPON VIDE");
                     } else {
                         dit("RIEN A ANNULER");
@@ -859,8 +750,7 @@ static void app_tache(void *arg)
             g_rafraichir = false;
             affiche(false);
         } else if (mn != dernier_minute && nav.mode == FDJ_MODE_NAV &&
-                   (!sur_intertitre() &&
-                    (module_courant() == P_ACCUEIL || module_courant() == P_RESP))) {
+                   (module_courant() == P_ACCUEIL || module_courant() == P_RESP)) {
             dernier_minute = mn;
             affiche(false);
         }

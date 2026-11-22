@@ -5,7 +5,7 @@
 #   1. tests unitaires / composant / integration / fonctionnel (sur le PC)
 #   2. ecriture des chiffres reels dans main/fdj_tests_stats.h
 #   3. recompilation du firmware avec ces chiffres
-#   4. rendu des 37 ecrans en PNG (verification a l'oeil)
+#   4. rendu des 8 ecrans en PNG (verification a l'oeil)
 #   5. journal docs/RECETTE.md
 #
 #   tools/recette.sh            tout
@@ -37,7 +37,7 @@ else
     echo "(build saute)"
 fi
 
-echo "== 4/4 apercu des 37 ecrans =="
+echo "== 4/4 apercu des 8 ecrans =="
 g++ -std=c++17 -O2 -w -I main -I /usr/include/cjson -o build/tests/apercu_fdj \
     tools/apercu_fdj.cpp main/fdj_ui.cpp main/fdj_parse.cpp main/fdj_model.cpp \
     main/art.cpp main/font5.cpp -lcjson -lm || rc=1
@@ -46,7 +46,7 @@ if [ -x build/tests/apercu_fdj ]; then
     for f in build/apercu/*.fb; do
         python3 tools/fb2png.py "$f" "${f%.fb}.png" 3 > /dev/null
     done
-    echo "PNG : build/apercu/p01.png ... p37.png"
+    echo "PNG : build/apercu/p01.png ... p08.png"
 fi
 
 # journal

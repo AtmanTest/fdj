@@ -24,7 +24,7 @@
 /* ---------------------------------------------------------------- */
 /* limites (taillees pour 320 Ko de RAM interne + 8 Mo de PSRAM)     */
 /* ---------------------------------------------------------------- */
-#define FDJ_PAGES            37
+#define FDJ_PAGES             8
 #define FDJ_PROFILS_MAX       4
 #define FDJ_HIST_MAX         32
 #define FDJ_HIST_PAGE         6     /* 6 paris visibles par page d'historique */
@@ -98,6 +98,7 @@ typedef struct {
     char     compte_id[10];       /* "FDJ-0001" */
     uint16_t code_boot;           /* 0..9999, 0000 par defaut */
     bool     code_perso;          /* false = code d'usine 0000 */
+    bool     connecte;            /* session ouverte sur ce compte   */
 
     /* --- profils --- */
     uint8_t      profil_actif;
@@ -128,9 +129,9 @@ typedef struct {
     uint8_t  hist_off;            /* page 4 : premier pari affiche (pagination) */
 } fdj_etat_t;
 
-#define FDJ_ETAT_VERSION 5
+#define FDJ_ETAT_VERSION 6
 #define FDJ_MAGIC 0x46444A31u    /* "FDJ1" */
-#define FDJ_VERSION "4.2.0"      /* doit suivre le fichier VERSION */
+#define FDJ_VERSION "5.0.0"      /* doit suivre le fichier VERSION */
 
 /* ---------------------------------------------------------------- */
 /* donnees vivantes : matchs en direct + titres + mesures           */

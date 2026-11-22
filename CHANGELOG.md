@@ -1,5 +1,21 @@
 # Journal des versions
 
+## 5.0.0 — 2026-11-22 — 8 écrans, connexion de compte
+
+- **De 37 à 8 écrans** : accueil, connexion, paris, coupon, compte,
+  responsable, preuves, réglages. Plus d'intertitres, plus de sous-pages :
+  chaque écran porte une idée, en 5×10, lisible à 50 cm.
+- **Connexion** : écran 2, code à 4 chiffres (0000 d'usine), session
+  enregistrée en NVS (`connecte`, blob v6). Hors session, le solde et les
+  données personnelles affichent N.D. ; déconnexion depuis l'accueil ou le
+  compte.
+- Accueil : nom, solde en corps double, plafond, score live, bouton unique
+  (PARIER ou SE CONNECTER).
+- Coupon : uniquement les sélections sportives (la loterie sort du parcours).
+- Preuves : nombre de vérifications, 0 échec, latences, mémoire, API.
+- README refait (8 écrans, gestes, API, connexion).
+- 387 vérifications, 7 suites, 0 échec ; firmware 1 253 936 o ; 8 captures.
+
 ## 4.2.0 — 2026-11-22 — application Unibet, sans son, copie sur carte SD
 
 - **Marque Unibet** : l'accueil affiche UNIBET (plus BATMINO), la ligne de

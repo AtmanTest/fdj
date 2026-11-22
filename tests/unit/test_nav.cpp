@@ -12,7 +12,7 @@ static void test_deplacement(void)
     OK(n.curseur == 0, "apres le dernier item, retour au premier");
     OK(n.page == 2, "et on passe a la page suivante : B2 suffit pour tout faire");
 
-    fdj_nav_init(&n, FDJ_PAGES - 1, 0);      /* page 19, 4 items */
+    fdj_nav_init(&n, FDJ_PAGES - 1, 0);      /* dernier ecran, 4 items */
     for (int i = 0; i < 4; i++) fdj_nav_geste(&n, 4, 1, GESTE_COURT, 80);
     OK(n.page == 0 && n.curseur == 0, "apres la page 19, on revient page 1");
 
@@ -37,7 +37,7 @@ static void test_validation(void)
     OK(n.page == 7, "on remonte d'une page");
     fdj_nav_init(&n, 0, 0);
     OK(fdj_nav_geste(&n, 4, 0, GESTE_LONG, 700) == FDJ_ACT_PRECEDENT, "page 1 : precedent existe");
-    OK(n.page == FDJ_PAGES - 1, "page 1 -> page 19 (boucle)");
+    OK(n.page == FDJ_PAGES - 1, "derniere page -> page 1 (boucle)");
 }
 
 static void test_accueil(void)

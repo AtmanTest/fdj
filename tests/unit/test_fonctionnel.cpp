@@ -131,12 +131,12 @@ int main(void)
         fdj_ui_dessine(&v, fbm);
         if (noirs() > 150) pages_ok++;
     }
-    OK(pages_ok == FDJ_PAGES, "les 37 ecrans s'affichent avec les vraies donnees");
+    OK(pages_ok == FDJ_PAGES, "les 8 ecrans s'affichent avec les vraies donnees");
 
     /* la page paris doit montrer des selections, pas un message d'attente */
     v.page = 2;
     fdj_ui_dessine(&v, fbm);
-    OK(fdj_page_items(2, &v) == (top.n < 6 ? top.n : 6), "la page paris liste le top (6 max)");
+    OK(fdj_page_items(2, &v) == (top.n < 4 ? top.n : 4), "la page paris liste 4 selections max");
     OK(noirs() > 800, "la page paris est dense (10 lignes + titres)");
 
     /* ---- 6. persistance : on eteint et on rallume ---- */

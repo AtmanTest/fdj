@@ -138,6 +138,7 @@ void fdj_etat_defaut(fdj_etat_t *e, uint32_t graine)
     fdj_txt_copie(e->compte_id, sizeof(e->compte_id), "FDJ-0001");
     e->code_boot  = 0;          /* 0000 : le code d'usine de la maquette */
     e->code_perso = false;
+    e->connecte   = false;
 
     /* profil par defaut : plafonds prudents, c'est celui de la maquette */
     e->nb_profils   = 1;
