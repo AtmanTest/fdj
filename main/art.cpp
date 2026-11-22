@@ -2,6 +2,7 @@
  *  Aucune dependance ESP-IDF : compile tel quel des deux cotes.
  */
 #include "art.h"
+#include "font5.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -201,7 +202,7 @@ static const uint8_t FONT3X5[56][5] = {
   {0,0,0,0,0}, {7,5,5,5,7}, {2,2,2,2,2}, {7,1,7,4,7}, {7,1,7,1,7}, {5,5,7,1,1},
   {7,4,7,1,7}, {7,4,7,5,7}, {7,1,1,1,1}, {7,5,7,5,7}, {7,5,7,1,7}, {2,5,7,5,5},
   {6,5,6,5,6}, {7,4,4,4,7}, {6,5,5,5,6}, {7,4,6,4,7}, {7,4,6,4,4}, {7,4,5,5,7},
-  {5,5,7,5,5}, {7,2,2,2,7}, {1,1,1,5,7}, {5,5,6,5,5}, {4,4,4,4,7}, {5,7,7,5,5},
+  {5,5,7,5,5}, {7,2,2,2,7}, {1,1,1,5,7}, {5,5,6,5,5}, {4,4,4,4,7}, {5,7,5,5,5},
   {7,5,5,5,5}, {7,5,5,5,7}, {7,5,7,4,4}, {7,5,5,7,1}, {7,5,7,6,5}, {7,4,7,1,7},
   {7,2,2,2,2}, {5,5,5,5,7}, {5,5,5,5,2}, {5,5,7,7,5}, {5,5,2,5,5}, {5,5,2,2,2},
   {7,1,2,4,7}, {0,0,0,0,2}, {0,2,0,2,0}, {0,0,7,0,0}, {1,1,2,4,4}, {5,1,2,4,5},
@@ -244,6 +245,22 @@ int a_text_col(int x, int y, int s, const char *str, int black)
 }
 
 int a_text(int x, int y, int s, const char *str) { return a_text_col(x, y, s, str, 1); }
+
+/* texte en 5x10 : utilise pour le logo, ou le M du 3x5 se confond avec un H */
+int a_text5(int x, int y, const char *str)
+{
+    int i = 0;
+    for (const char *p = str; *p; p++) {
+        uint8_t code = font5_code((unsigned char)*p);
+        if (!code) continue;
+        const uint8_t *g = FONT5[code - 1];   /* font5_code est 1-based (0 = inconnu) */
+        for (int r = 0; r < FONT5_HAUTEUR; r++)
+            for (int c = 0; c < FONT5_LARGEUR; c++)
+                if (g[r] & (1 << c)) a_px(x + i * FONT5_PAS + c, y + r, 1);
+        i++;
+    }
+    return i > 0 ? i * FONT5_PAS - 1 : 0;
+}
 
 int a_num(int x, int y, int s, int val, int min_d)
 {

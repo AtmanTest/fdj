@@ -178,12 +178,13 @@ static void p_accueil(const fdj_vue_t *v)
     txt_blanc(14, 24, 4, "FDJ");
     txt_blanc(10, 47, 1, "PARIS EN LIGNE");
 
-    txt(76, 22, 2, "BATMINO");
-    txt(76, 34, 1, "MAQUETTE DE DEMO");
-    txt(76, 41, 1, "AUCUNE MISE REELLE");
+    /* logo en 5x10 : le M du 3x5 se lit comme un H sur la dalle */
+    a_text5(76, 20, "BATMINO");
+    a_text5(76, 31, "MAQUETTE DE DEMO");
+    a_text5(76, 42, "AUCUNE MISE REELLE");
     char quand[26];
     if (!v->heure_ok) {
-        snprintf(quand, sizeof(quand), "HEURE NON SYNCHRONISEE");
+        snprintf(quand, sizeof(quand), "HEURE NON SYNCHRO");
     } else {
         time_t t = (time_t)v->now;
         struct tm ti;
@@ -192,17 +193,17 @@ static void p_accueil(const fdj_vue_t *v)
         snprintf(quand, sizeof(quand), "%s %02d/%02d %02d:%02d",
                  J[ti.tm_wday % 7], ti.tm_mday, ti.tm_mon + 1, ti.tm_hour, ti.tm_min);
     }
-    txt(76, 48, 1, quand);
+    txt(76, 55, 1, quand);   /* sous le bloc, au-dessus des encadres (62) */
 
     /* solde du profil actif */
-    cadre(6, 60, 122, 96, 1);
-    txt(10, 63, 1, "SOLDE DE DEMONSTRATION");
+    cadre(6, 62, 122, 96, 1);
+    txt(10, 64, 1, "SOLDE DE DEMONSTRATION");
     char b[32];
     txt(10, 72, 3, euros(b, sizeof(b), pr ? pr->solde_ct : 0, false));
 
     /* profil + plafond effectif (peut etre divise par la protection) */
-    cadre(128, 60, 194, 96, 1);
-    txt(132, 63, 1, "PROFIL ACTIF");
+    cadre(128, 62, 194, 96, 1);
+    txt(132, 64, 1, "PROFIL ACTIF");
     char nom[14];
     elide(nom, sizeof(nom), 2, 56, pr ? pr->nom : "AUCUN");
     txt(132, 71, 2, nom);

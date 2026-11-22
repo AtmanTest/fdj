@@ -47,6 +47,8 @@ int  a_num(int x, int y, int s, int val, int min_d);
 int  a_text_w(int s, const char *str);
 int  a_num_w(int s, int val, int min_d);
 int  a_text_c(int cx, int y, int s, const char *str);   /* centre sur cx */
+/* police 5x10 (logo) : le M y est lisible, contrairement au 3x5 */
+int  a_text5(int x, int y, const char *str);
 
 /* ---------------------------------------------------------------- */
 /* icones                                                           */

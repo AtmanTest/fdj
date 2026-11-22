@@ -1,5 +1,16 @@
 # Journal des versions
 
+## 4.1.3 — 2026-11-22 — le M se lit enfin comme un M
+
+- Police 3×5 : le glyphe M avait deux barres au milieu, ce qui le rendait
+  identique à un H sur la vraie dalle (« BATHINO », « HAQUETTE »). Sa barre
+  passe en haut du glyphe, et le bloc logo de l'accueil (BATMINO, maquette,
+  mention légale) est désormais composé en 5×10, où le M est sans ambiguïté.
+- Accueil : date replacée sous le bloc logo, encadrés décalés de 2 px.
+- Vérifié sur la dalle réelle après flash : « BATMINO » lisible, 2 matchs en
+  direct, Wi-Fi connecté, version 4.1.3 annoncée par /etat.
+- Aucun autre changement ; 599 vérifications, firmware recompilé et flashé.
+
 ## 4.1.2 — 2026-11-22 — outil de flash
 
 - `tools/flash.sh` : détecte le port (ttyACM ou ttyUSB), compile, flashe, puis
